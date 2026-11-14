@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.hypothesis/
+
+# Node
+node_modules/
+dist/
+
+# Env (only .env.example with empty values is committed)
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# NOTE: .kiro/ is NEVER gitignored — judges need to see it.

@@ -1,0 +1,22 @@
+{
+  "name": "compiler-reviewer",
+  "description": "Dev-time reviewer. Reviews compiler and runtime diffs against Revenant's invariants. Read-only.",
+  "prompt": "file://./prompts/compiler-reviewer.md",
+  "tools": ["read"],
+  "includeMcpJson": false,
+  "resources": [
+    "file://.kiro/steering/product.md",
+    "file://.kiro/steering/tech.md",
+    "file://.kiro/steering/ussd-carrier-rules.md",
+    "file://.kiro/steering/type-subset.md",
+    "file://.kiro/steering/security-pin-secrets.md",
+    "file://.kiro/steering/testing.md"
+  ],
+  "permissions": {
+    "rules": [
+      { "capability": "fs_read", "match": ["*"], "effect": "allow" },
+      { "capability": "fs_write", "match": ["*"], "effect": "deny" },
+      { "capability": "shell", "match": ["*"], "effect": "deny" }
+    ]
+  }
+}

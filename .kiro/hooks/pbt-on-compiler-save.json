@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "pbt-on-compiler-save",
+      "description": "Re-run the fast property-based tests whenever a compiler source file is saved.",
+      "trigger": "PostFileSave",
+      "matcher": "backend/src/revenant/compiler/.*\\.py$",
+      "action": {
+        "type": "command",
+        "command": "pytest -m pbt --hypothesis-profile=dev -x"
+      },
+      "timeout": 300
+    }
+  ]
+}

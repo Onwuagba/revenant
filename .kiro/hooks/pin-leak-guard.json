@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "pin-leak-guard",
+      "description": "Coarse guard: fail if runtime code passes text or pin to a logging call. Heuristic only; the canary-PIN test is the real check.",
+      "trigger": "PostFileSave",
+      "matcher": "backend/src/revenant/runtime/.*\\.py$",
+      "action": {
+        "type": "command",
+        "command": "if grep -rnE '(log|logger|logging|print)[A-Za-z_.]*\\(.*\\b(text|pin)\\b' backend/src/revenant/runtime --include=*.py; then echo 'PIN LEAK GUARD: a log or print call mentions text or pin. See steering security-pin-secrets.md.' >&2; exit 1; fi"
+      },
+      "timeout": 30
+    }
+  ]
+}

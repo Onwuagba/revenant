@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "docs-drift",
+      "description": "The type-subset doc changed: remind the agent to keep steering and tests in sync.",
+      "trigger": "PostFileSave",
+      "matcher": "architecture/IR_AND_TYPE_SUBSET\\.md$",
+      "action": {
+        "type": "agent",
+        "prompt": "architecture/IR_AND_TYPE_SUBSET.md just changed. Compare it with .kiro/steering/type-subset.md (subset table and refusal codes) and with the refusal-code enum and classifier tests. List every mismatch and propose the exact edits; do not apply them without confirmation. Do not invent new refusal codes."
+      }
+    }
+  ]
+}

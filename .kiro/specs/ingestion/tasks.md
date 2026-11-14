@@ -1,0 +1,42 @@
+# Tasks: ingestion
+
+Prerequisite: spec `ir-type-subset` tasks 1-8 done. One task at a time.
+
+- [ ] 1. URL guard
+  - Implement `check_url` (https only, DNS resolve, reject private/loopback/link-local/metadata ranges, size and time caps).
+  - Unit tests for each blocked range and a public address (mock DNS).
+  - _Requirements: 3.1, 3.2, 3.4_
+- [ ] 2. URL guard redirects
+  - Re-check the guard on every redirect hop; cap hops.
+  - Unit test: redirect to 127.0.0.1 is rejected.
+  - _Requirements: 3.3_
+- [ ] 3. Safe YAML/JSON loader
+  - 2 MB cap before parse; YAML safe loader with alias and depth limits.
+  - Unit tests: alias bomb and oversize file rejected.
+  - _Requirements: 1.5, 2.1, 5.1_
+- [ ] 4. Local `$ref` resolver
+  - Own resolver for `#/...`, cycle detection (`R_RECURSIVE`), depth cap, remote refs recorded as `R_REF_UNRESOLVED` with no network call.
+  - Unit tests incl. cyclic and remote refs (assert no socket opened).
+  - _Requirements: 2.2, 2.3, 2.4, 2.5_
+- [ ] 5. OpenAPI operations to draft IR
+  - Extract operations, ids (generate and flag if missing), kind from method, params from path/query/header/body scalars.
+  - Create `examples/specs/clinic.openapi.yaml` (list_clinics, list_slots, book_appointment with PIN) as a fixture.
+  - _Requirements: 1.1, 1.2, 1.3, 1.4_
+- [ ] 6. Wire ingest to classifier and write artefacts
+  - Produce `ir.draft.json` and `refusals.json`; add `examples/specs/unsupported-demo.openapi.yaml` containing a nested object, a date-time and free text.
+  - Test: demo spec yields the expected refusal codes and unchanged compiled operations.
+  - _Requirements: 1.1_
+- [ ] 7. Adversarial fixtures
+  - Add ReDoS `pattern`, deep nesting, prompt-injection description fixtures; assert caps hold and `pattern` is never executed.
+  - _Requirements: 5.1_
+- [ ] 8. MCP ingest core
+  - `ingest_mcp.py`: connect via SDK, `initialize`, `tools/list`, map tools to draft Operations; text result shape when no `outputSchema`.
+  - Test against an in-process FastMCP fixture server.
+  - _Requirements: 4.1, 4.2_
+- [ ] 9. MCP safety rules
+  - Annotations as untrusted seeds; stdio only from a static registry; reject user-supplied commands; guard the URL.
+  - Unit tests for each rule.
+  - _Requirements: 4.3, 4.4, 4.5_
+- [ ] 10. Farmer-prices MCP sample
+  - `examples/farmer_prices_mcp/` FastMCP server (streamable HTTP) with 2 tools: one in-subset, one deliberately out-of-subset.
+  - _Requirements: 4.1_

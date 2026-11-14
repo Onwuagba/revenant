@@ -1,0 +1,23 @@
+{
+  "name": "ussd-annotator",
+  "description": "Headless compile-time agent. Reads ir.draft.json and refusals.json, proposes short USSD labels and groupings, iterates against the real validators via MCP, and writes only annotations.json.",
+  "prompt": "file://./prompts/ussd-annotator.md",
+  "tools": ["read", "write", "@revenant-validator"],
+  "mcpServers": {
+    "revenant-validator": {
+      "command": "python",
+      "args": ["-m", "revenant.mcp_validator"]
+    }
+  },
+  "includeMcpJson": false,
+  "resources": ["file://.kiro/steering/ussd-carrier-rules.md"],
+  "permissions": {
+    "rules": [
+      { "capability": "fs_read", "match": ["*"], "effect": "allow" },
+      { "capability": "fs_write", "match": ["annotations.json"], "effect": "allow" },
+      { "capability": "fs_write", "match": ["*"], "exclude": ["annotations.json"], "effect": "deny" },
+      { "capability": "shell", "match": ["*"], "effect": "deny" },
+      { "capability": "mcp", "match": ["revenant-validator/*"], "effect": "allow" }
+    ]
+  }
+}

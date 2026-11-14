@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "verify-on-spec-change",
+      "description": "Upstream API spec changed: re-run the validators over examples/specs. Fails non-zero on any violation.",
+      "trigger": "PostFileSave",
+      "matcher": "examples/specs/.*\\.(ya?ml|json)$",
+      "action": {
+        "type": "command",
+        "command": "revenant verify examples/specs"
+      },
+      "timeout": 180
+    }
+  ]
+}

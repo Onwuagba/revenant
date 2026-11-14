@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "revenant-validator": {
+      "command": "python",
+      "args": ["-m", "revenant.mcp_validator"],
+      "env": {},
+      "disabled": false,
+      "autoApprove": ["list_limits", "validate_draft", "explain_violation"]
+    }
+  }
+}

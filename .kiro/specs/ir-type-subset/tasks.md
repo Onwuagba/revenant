@@ -1,0 +1,46 @@
+# Tasks: IR and type subset
+
+Run one task at a time. After each task, run the tests it names and stop.
+
+- [ ] 1. Project skeleton for the compiler package
+  - Create `backend/pyproject.toml` (Python 3.12, pydantic v2, pytest, hypothesis, ruff, mypy) and empty package `backend/src/revenant/compiler/__init__.py`.
+  - Register pytest marker `pbt` and Hypothesis profiles `dev` (50), `ci` (200, derandomize), `deep` in `tests/conftest.py`.
+  - _Requirements: 1_
+- [ ] 2. Refusal codes and Refusal model
+  - Implement `refusals.py` with the 12-code enum and `Refusal` model.
+  - Unit test: enum contains exactly the 12 codes from the steering file.
+  - _Requirements: 3.1, 3.2_
+- [ ] 3. IR models
+  - Implement `ir.py` models with length limits (title 24, label 20).
+  - Unit tests: valid objects load; over-long label is rejected.
+  - _Requirements: 1.1, 1.4_
+- [ ] 4. Canonical JSON
+  - Implement `canonical_json` and ordering of operations by id.
+  - Unit tests: key order and operation order do not change output bytes.
+  - _Requirements: 1.2, 1.3_
+- [ ] 5. Classifier: scalar types
+  - In `subset.py` classify boolean, bounded integer/number, enum string (<=36), typed token. Include `R_UNBOUNDED_NUMBER` and `R_FREE_TEXT`.
+  - Unit tests: one per supported row and per refusal.
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 3.1_
+- [ ] 6. Classifier: PIN, date window, options-from
+  - Add PIN (4-6 digits), date with window N<=7, dynamic choice. Include `R_DATETIME` for date-time/time/duration and unwindowed date.
+  - Unit tests per case.
+  - _Requirements: 2.5, 2.6, 2.8, 3.1_
+- [ ] 7. Classifier: objects, polymorphism, binary, recursion
+  - Flat object flattening (<=6 props); `R_NESTED_OBJECT`, `R_POLYMORPHIC`, `R_BINARY`, `R_RECURSIVE`, `R_TOO_MANY_PARAMS`, `R_NON_GSM7`.
+  - Add a depth cap and cycle detection so no input raises.
+  - _Requirements: 2.7, 3.1, 3.3_
+- [ ] 8. Operation-level classification and refusal report
+  - `classify_operation` excludes whole operations with any refusal; write `refusals.json` with per-code table; all-refused -> exit code 2 signal.
+  - Unit tests for exclusion and the report shape.
+  - _Requirements: 3.4, 3.5, 4.1, 4.2_
+- [ ] 9. Strategies for schemas
+  - Create `tests/pbt/strategies.py` with a JSON Schema strategy covering in-subset and out-of-subset shapes (including cyclic refs, huge depth, empty).
+  - _Requirements: 3.3_
+- [ ] 10. Property test P7 (totality)
+  - `test_P7_totality` marked `pbt`: any schema -> Param or Refusal with known code; never raises.
+  - Run with `--hypothesis-profile=dev -x`; report seed and example count as printed.
+  - _Requirements: 3.1, 3.3_
+- [ ] 11. Property test P13 (refusal soundness) stub
+  - Write `test_P13_refusal_soundness` against the IR layer (refused op ids absent from IR operations). Extend to machine/screens when the planner exists (state-machine-validators task 12).
+  - _Requirements: 3.4_
