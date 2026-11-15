@@ -3,7 +3,14 @@
 This file records what was actually run. Nothing here is claimed beyond that.
 
 ## Real Kiro runs
-**None yet.** No `kiro-cli` binary or `KIRO_API_KEY` was available in the environment where the pipeline was built.
+**One attempt, which did not produce annotations.** On 2026-11-15, `kiro-cli` 3.3.0 (logged in via Google) was installed and
+`scripts/kiro_smoke.sh` ran the real headless command on the clinic draft. After fixing agent discovery (the run dir now carries
+a copy of `.kiro/agents/ussd-annotator`), the run started and the agent loaded, then failed on the account:
+`UsageLimitReachedError: You've reached your monthly usage limit` (exit 1). The pipeline fell back to the deterministic annotator
+and recorded the reason. The transcript is in `.kiro/evidence/smoke-20261115T172131Z/`. No annotations came from Kiro, so there is
+no evidence yet of Kiro's output quality. A first attempt before the fix failed with exit 4 (agent not found in the run dir).
+
+**No successful Kiro run exists.** No `kiro-cli` binary or `KIRO_API_KEY` was available in the environment where the pipeline was built.
 `scripts/kiro_smoke.sh` runs the real headless command and writes its transcript to `.kiro/evidence/`; it skips
 cleanly without a key. Until it has run, `.kiro/evidence/` contains no transcript and no real-run claim should be made.
 

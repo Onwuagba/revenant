@@ -4,7 +4,7 @@
 # to .kiro/evidence/ so a real run can be committed as evidence.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-if [[ -z "${KIRO_API_KEY:-}" ]]; then echo "SKIP: KIRO_API_KEY not set"; exit 0; fi
+if [[ -z "${KIRO_API_KEY:-}" ]] && ! kiro-cli whoami >/dev/null 2>&1; then echo "SKIP: no KIRO_API_KEY and not logged in"; exit 0; fi
 if ! command -v kiro-cli >/dev/null; then echo "SKIP: kiro-cli not installed"; exit 0; fi
 OUT=.kiro/evidence/smoke-$(date -u +%Y%m%dT%H%M%SZ)
 mkdir -p "$OUT"

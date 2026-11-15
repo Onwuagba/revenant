@@ -1,0 +1,11 @@
+{
+  "annotator": "deterministic(fallback: exit 1)",
+  "cached": false,
+  "fallback_reason": "exit 1",
+  "kiro_model": "",
+  "transcript_path": ".kiro/evidence/smoke-20261115T172131Z/runs/38dc583ccd99/transcript.jsonl",
+  "exit_code": 1,
+  "instruction_sha256": "60c8ec20792ce4e51fec88e6eecf742aa8873c44242283f399e514816f3ee3e8",
+  "duration_s": 11.227,
+  "repair_attempts": 0
+}

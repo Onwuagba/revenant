@@ -102,7 +102,7 @@ def test_run_dir_contents(clinic, tmp_path):
     app, refusals = clinic
     d = kh.build_run_dir(app, refusals, tmp_path)
     assert {p.name for p in d.iterdir()} == {"ir.draft.json", "refusals.json",
-                                             "carrier-rules.md", "annotations.schema.json"}
+                                             "carrier-rules.md", "annotations.schema.json", ".kiro"}
 
 
 # -- tasks 7-8: fake kiro-cli ----------------------------------------------
@@ -174,7 +174,9 @@ def test_no_key_or_binary_falls_back(clinic, tmp_path, monkeypatch):
     r = kh.run_kiro(app, refusals, tmp_path, kiro_bin="definitely-not-installed")
     assert "not found" in r.fallback_reason
     monkeypatch.delenv("KIRO_API_KEY")
-    assert kh.run_kiro(app, refusals, tmp_path).fallback_reason == "no KIRO_API_KEY"
+    exe = fake_kiro(tmp_path, GOOD)
+    monkeypatch.setattr(kh, "_logged_in", lambda _bin: False)
+    assert kh.run_kiro(app, refusals, tmp_path, kiro_bin=exe).fallback_reason == "no KIRO_API_KEY and not logged in"
 
 
 # -- task 9: cache ----------------------------------------------------------
