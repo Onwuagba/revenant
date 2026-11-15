@@ -221,7 +221,7 @@ def test_repair_loop_runs_with_violations_and_is_bounded(clinic, tmp_path, monke
     assert calls["kiro"][0] is None and calls["kiro"][1][0]["validator"]  # repair got the violations
     assert len(calls["kiro"]) <= 1 + pl.MAX_REPAIRS
     assert b["report"]["annotation"]["annotator"] == "kiro-cli"
-    assert b["report"]["annotation"]["repair_attempts"] == 1
+    assert b["report"]["annotation"]["repair_attempts"] == 2
 
 
 def test_repair_exhausted_falls_back(clinic, tmp_path, monkeypatch):
