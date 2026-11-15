@@ -61,3 +61,11 @@ ruff, mypy (strict on compiler/runtime), pytest unit+pbt(ci), integration (servi
 
 ## 7. Manual acceptance (before video)
 1. Probe screens 160/182/183 in AT simulator (U4/U7). 2. Dial both apps in simulator. 3. Emulator matches simulator output. 4. SMS received on real handset. 5. Canary PIN grep clean. 6. Kill Kiro key: compile still succeeds deterministically.
+
+## Recorded `ci` profile run (2026-11-15)
+Command: `pytest -m pbt --hypothesis-profile=ci -q --hypothesis-show-statistics`
+Result: **24 passed, 241 deselected** in 62 s.
+Caveat, stated plainly: most property tests set their own `@settings(max_examples=N)` (observed values 20, 30, 40, 50),
+which overrides the profile's example count. So this run did **not** execute 200 examples per property; each ran the
+count in its own decorator. Raising or removing those per-test overrides is an open item. The `ci` profile is derandomised,
+so no random seed is printed.

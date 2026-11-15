@@ -48,5 +48,5 @@ Prerequisite: spec `ir-type-subset` tasks 1-8. One task at a time; run the named
   - Include random key walks that must terminate within `max_steps + retries`.
 - [x] 15. Property tests P6, P10
   - Permute operation order and JSON key order; assert identical `bundle_hash`. Pagination covers every item exactly once.
-- [ ] 16. Run the `ci` profile and record
+- [x] 16. Run the `ci` profile and record
   - Run `--hypothesis-profile=ci`; record the printed seed and example counts in the task summary. Do not invent numbers.
