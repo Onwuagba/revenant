@@ -20,3 +20,12 @@ dist/
 .DS_Store
 
 # NOTE: .kiro/ is NEVER gitignored — judges need to see it.
+
+# Build / test output
+runs/
+*.db
+*.db-wal
+*.db-shm
+frontend/playwright-report/
+frontend/test-results/
+.pytest_cache/

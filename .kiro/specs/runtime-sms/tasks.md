@@ -2,53 +2,53 @@
 
 Prerequisite: `state-machine-validators` tasks 1-12. One task at a time.
 
-- [ ] 1. Redaction filter
+- [x] 1. Redaction filter
   - `redact.py` logging filter dropping `text`, `pin`, `password`, `token`, `authorization`; unit tests for dict, extra fields and exception text.
   - _Requirements: 4.1_
-- [ ] 2. Pure machine step and replay
+- [x] 2. Pure machine step and replay
   - `machine.py`: `step` and `replay`; no I/O. Unit tests on the clinic bundle: `""`, `"1"`, `"1*2*3"`, `"1*0*1"`, `00`.
   - _Requirements: 2.1, 1.2_
-- [ ] 3. Property test P8 (replay equivalence)
+- [x] 3. Property test P8 (replay equivalence)
   - Stateful stepping equals replay of cumulative text.
   - _Requirements: 2.1_
-- [ ] 4. FastAPI callback route
+- [x] 4. FastAPI callback route
   - Router factory, form parsing, `CON`/`END` text/plain, wrong token 404, malformed form 200 `END`. Disable body logging for `/ussd/*`.
   - Contract tests with recorded AT payload fixtures.
   - _Requirements: 1.1, 1.3, 1.4, 1.6_
-- [ ] 5. Alembic migration for sessions and events
+- [x] 5. Alembic migration for sessions and events
   - Tables `ussd_sessions`, `session_events`, `option_cache`, `pin_attempts` per `docs/ARCHITECTURE.md` section 6; no column may hold a PIN or input value.
   - _Requirements: 2.2, 4.1_
-- [ ] 6. Session cache and dedupe
+- [x] 6. Session cache and dedupe
   - `(session_id, step_index)` unique; duplicate returns stored response; replayed state wins on mismatch.
   - Integration test: same callback twice, one action.
   - _Requirements: 2.3, 2.4_
-- [ ] 7. Actions: REST upstream
+- [x] 7. Actions: REST upstream
   - 3 s deadline, Idempotency-Key, outcomes ok/slow/long/error; `examples/clinic_api/` mock service.
   - _Requirements: 3.1_
-- [ ] 8. Slot sanitisation and option cache
+- [x] 8. Slot sanitisation and option cache
   - Sanitise upstream values; TTL 60 s option cache.
   - _Requirements: 3.3, 3.4_
-- [ ] 9. PIN as final input
+- [x] 9. PIN as final input
   - PIN handled in memory only, passed upstream, `END` response; never stored or rendered.
   - _Requirements: 4.2_
-- [ ] 10. Canary PIN test and P9
+- [x] 10. Canary PIN test and P9
   - Full clinic flow with a canary PIN; grep responses, captured logs and a DB dump. Property `test_P9_pin_canary`.
   - _Requirements: 4.1, 4.5_
-- [ ] 11. Lockout
+- [x] 11. Lockout
   - 3 failures per MSISDN HMAC -> 15 min lock; identical message; integration test.
   - _Requirements: 4.3, 4.4_
-- [ ] 12. SMS outbox and provider interface
+- [x] 12. SMS outbox and provider interface
   - `SmsProvider`, `EmulatorSms`, enqueue on slow/long/202; `END` "sent by SMS".
   - _Requirements: 3.2, 5.1_
-- [ ] 13. SMS worker
+- [x] 13. SMS worker
   - `FOR UPDATE SKIP LOCKED` claim, backoff, bounded attempts, own-MSISDN-only, rate limits and daily cap.
   - _Requirements: 5.2, 5.3_
-- [ ] 14. AfricasTalkingSms provider and modem stub
+- [x] 14. AfricasTalkingSms provider and modem stub
   - Provider reading `AT_USERNAME`/`AT_API_KEY` from env only; `ModemSms` stub raising NotImplemented behind the interface.
   - _Requirements: 5.1_
-- [ ] 15. Property test P11 (SMS lossless and budget)
+- [x] 15. Property test P11 (SMS lossless and budget)
   - _Requirements: 5.4_
-- [ ] 16. No-LLM integration run and retention purge
+- [x] 16. No-LLM integration run and retention purge
   - Run the integration suite with LLM env vars unset; purge job tests for sessions and sms rows.
   - _Requirements: 1.5, 6.1_
 - [ ]* 17. Stateful PBT (optional)

@@ -85,10 +85,31 @@ def now() -> datetime:
 
 
 def make_engine(url: str = "sqlite+pysqlite:///:memory:") -> sa.Engine:
-    kwargs: dict[str, Any] = {}
+    """Create an engine. ``:memory:`` SQLite becomes a private temp-file database.
+
+    A single shared in-memory connection is not safe when the compile thread and
+    request handlers run concurrently, so each engine gets its own file (WAL, own
+    connection per caller) that is removed at interpreter exit.
+    """
     if url.startswith("sqlite") and ":memory:" in url:
-        kwargs = {"connect_args": {"check_same_thread": False}, "poolclass": sa.pool.StaticPool}
+        import atexit
+        import shutil
+        import tempfile
+
+        tmp = tempfile.mkdtemp(prefix="revenant-db-")
+        atexit.register(shutil.rmtree, tmp, ignore_errors=True)
+        url = f"sqlite+pysqlite:///{tmp}/revenant.db"
+    kwargs: dict[str, Any] = {}
+    if url.startswith("sqlite"):
+        kwargs = {"connect_args": {"check_same_thread": False, "timeout": 30}}
     engine = sa.create_engine(url, **kwargs)
+    if url.startswith("sqlite"):
+        @sa.event.listens_for(engine, "connect")
+        def _pragmas(dbapi_conn, _):  # type: ignore[no-untyped-def]
+            cur = dbapi_conn.cursor()
+            cur.execute("PRAGMA journal_mode=WAL")
+            cur.execute("PRAGMA busy_timeout=30000")
+            cur.close()
     return engine
 
 

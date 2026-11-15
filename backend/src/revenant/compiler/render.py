@@ -82,9 +82,9 @@ def _render_menu(state: State, machine: Machine, app: App,
         param = _find_param(op, state.param_name) if op else None
         label = param.label if param else state.param_name
         lines = [f"Select {label}"]
-        if param and param.type == ParamType.ENUM_MENU and param.constraints.enum:
-            for i, val in enumerate(param.constraints.enum[:5]):
-                lines.append(f"{i+1} {val}")
+        from .planner import menu_label
+        for i, val in enumerate(state.options):
+            lines.append(f"{i+1} {menu_label(val)}")
         if "0" in state.transitions:
             lines.append("0 Back")
         if "00" in state.transitions:

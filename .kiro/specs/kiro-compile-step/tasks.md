@@ -2,40 +2,40 @@
 
 Prerequisite: `state-machine-validators` tasks 1-12 done (validators exist). One task at a time. Tasks that need a Kiro key are marked KEY; skip them if no key is available and say so.
 
-- [ ] 1. Annotation JSON Schema
+- [x] 1. Annotation JSON Schema
   - `annotations.schema.json` (`additionalProperties: false`, whitelisted keys, label caps) and a loader/validator.
   - Unit tests: unknown key and over-length label rejected.
   - _Requirements: 1.1, 1.2_
-- [ ] 2. Merge step
+- [x] 2. Merge step
   - `merge.py` applying labels/hints only; cannot add transitions/operations.
   - _Requirements: 1.3_
-- [ ] 3. Property test P12
+- [x] 3. Property test P12
   - Idempotent merge; annotations cannot add operations or transitions.
   - _Requirements: 1.3, 1.4_
-- [ ] 4. Deterministic annotator
+- [x] 4. Deterministic annotator
   - Heuristic labels and grouping, no network. Test: clinic bundle verifies with it.
   - _Requirements: 2.1, 2.3_
-- [ ] 5. Validator MCP server
+- [x] 5. Validator MCP server
   - `mcp_validator/server.py` FastMCP stdio with `validate_draft`, `explain_violation`, `list_limits`. No other tools.
   - Test with an in-process client.
   - _Requirements: 4.1, 4.2, 4.3_
-- [ ] 6. Run directory builder
+- [x] 6. Run directory builder
   - Create `runs/<run_id>/` with the four input files (copy `.kiro/steering/ussd-carrier-rules.md` to `carrier-rules.md`).
   - _Requirements: 3.1_
-- [ ] 7. Headless runner with fallback
+- [x] 7. Headless runner with fallback
   - `kiro_headless.py`: subprocess with 120 s timeout, exact command from requirement 3.2, transcript capture, exit-code handling (3 and 4 = failure), schema check, fallback recording. Instruction string constant contains no spec text.
   - Unit tests with a fake `kiro-cli` executable on PATH.
   - _Requirements: 2.2, 3.2, 3.3, 3.4, 3.5, 3.6_
-- [ ] 8. Failure-injection tests
+- [x] 8. Failure-injection tests
   - Non-zero exit, invalid JSON, schema violation, timeout -> fallback, bundle still verifies.
   - _Requirements: 2.2, 2.3_
-- [ ] 9. Annotation cache
+- [x] 9. Annotation cache
   - Alembic table `annotation_cache`; lookup before run; record `annotator = cached`.
   - _Requirements: 5.1, 5.2_
-- [ ] 10. Repair loop
+- [x] 10. Repair loop
   - Up to 2 repair runs with the violation list, only when Kiro is enabled.
   - _Requirements: 5.3_
-- [ ] 11. Honest reporting
+- [x] 11. Honest reporting
   - Report fields `annotator`, `cached`, `fallback_reason`, `kiro_model`, `transcript_path`.
   - _Requirements: 5.4_
 - [ ] 12. KEY: smoke script

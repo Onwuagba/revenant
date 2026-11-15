@@ -135,7 +135,9 @@ class TestMutationSelfTest:
 
     def test_delete_edge(self):
         app, m = self._valid()
-        m.states["get_price__step0_item"].transitions.pop("1", None)
+        # Each enum option has its own edge to the next state; delete them all.
+        for k in ("1", "2"):
+            m.states["get_price__step0_item"].transitions.pop(k, None)
         r1 = validate_reachability(m)
         r2 = validate_exits(m)
         assert not r1.passed or not r2.passed

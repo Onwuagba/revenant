@@ -163,7 +163,7 @@ def test_failure_injection_falls_back_and_bundle_verifies(clinic, tmp_path, body
     app, refusals = clinic
     exe = fake_kiro(tmp_path, body)
     bundle = compile_with_annotation(app, refusals, kiro_enabled=True,
-                                     runs_root=tmp_path / "runs", kiro_bin=exe, timeout=1)
+                                     runs_root=tmp_path / "runs", kiro_bin=exe, timeout=1 if body.startswith("sleep") else 30)
     rep = bundle["report"]["annotation"]
     assert rep["annotator"].startswith("deterministic(fallback:") and reason in rep["annotator"]
     assert bundle["report"]["all_passed"]

@@ -84,7 +84,8 @@ NOT verified (use with care):
 ## 9. Build log (fill in as you go)
 | Date | Work item | Tool (Kiro IDE spec task / Kiro chat / kiro-cli headless / by hand) | Evidence (commit, transcript, screenshot) | Notes (what needed fixing by hand) |
 |---|---|---|---|---|
-| | | | | |
-| | | | | |
+| 2026-11-15 | Spec 4 runtime-sms: service, store, worker, actions, clinic mock, Alembic | By hand (Claude Code CLI, not the Kiro IDE) | commits `Spec 4 ...` | Planner/runtime gaps found: no wildcard input, unreachable menu options 2-5 (fixed) |
+| 2026-11-15 | Spec 5 kiro-compile-step: schema, merge, deterministic annotator, validator MCP, headless runner, cache, repair | By hand (Claude Code CLI) | commit `Spec 5 ...`; fake-kiro tests only | No real Kiro run: no kiro-cli/key available. Tasks 12-13 (KEY) not done |
+| 2026-11-15 | Platform API, console, emulator, CLI, deploy files | By hand (Claude Code CLI) | commits; Playwright smoke 7/7 | Hooks not confirmed in IDE |
 
 Write-up checklist: which specs were run in Kiro; which hooks really fired; which headless runs were real vs cached vs fallback; what Kiro could not do; what you wrote by hand.

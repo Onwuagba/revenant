@@ -43,6 +43,8 @@ class Deployment:
     bundle: dict[str, Any]
     upstream_base: str = ""
     sms_budget_segments: int = 3
+    http_client: Any = None  # per-deployment upstream client (tests/demo use ASGI mocks)
+    mcp_call: Any = None  # async (tool, args) -> Any for MCP-sourced operations
 
 
 @dataclass
@@ -108,9 +110,11 @@ class UssdService:
             # Identical to the bad-PIN message so lockout is not observable.
             return END_PREFIX + BAD_PIN_MSG, "pin_locked"
 
+        params = dict(trace.params)
+        if op["source_ref"].startswith("mcp:"):
+            return await self._run_mcp(dep, op, params, msisdn, mh)
         method, _, path = op["source_ref"].partition(" ")
         url = dep.upstream_base.rstrip("/") + path
-        params = dict(trace.params)
         if has_pin and trace.pin is not None:
             params["pin"] = trace.pin
 
@@ -124,7 +128,7 @@ class UssdService:
 
         result = await call_upstream(
             url, method, params, session_id=session_id, state_id=trace.state_id,
-            http_client=self.http_client,
+            http_client=dep.http_client or self.http_client,
         )
         params.clear()
 
@@ -138,6 +142,20 @@ class UssdService:
             self.options.put(cache_key, json.dumps(result.data))
         return self._render_result(dep, op, result, msisdn, mh)
 
+    async def _run_mcp(self, dep: Deployment, op: dict[str, Any], params: dict[str, Any],
+                       msisdn: str, mh: str) -> tuple[str, str]:
+        if dep.mcp_call is None:
+            return END_PREFIX + ERROR_MSG, "upstream_error"
+        try:
+            raw = await dep.mcp_call(op["source_ref"][4:], params)
+        except Exception as exc:
+            logger.warning("MCP call failed: %s", type(exc).__name__)
+            return END_PREFIX + ERROR_MSG, "upstream_error"
+        finally:
+            params.clear()
+        data = raw if isinstance(raw, (dict, list)) else {"text": str(raw)}
+        return self._render_result(dep, op, ActionResult(ActionOutcome.OK, data), msisdn, mh)
+
     def _render_result(self, dep: Deployment, op: dict[str, Any], result: ActionResult,
                        msisdn: str, mh: str) -> tuple[str, str]:
         if result.outcome == ActionOutcome.ERROR:
@@ -148,6 +166,16 @@ class UssdService:
 
         fields = op["result"]["fields"]
         data = result.data
+        if not fields:  # text-shaped result (e.g. MCP tool without outputSchema)
+            txt = sanitise_slot(_dig(data, "text") if isinstance(data, dict) else str(data), 400)
+            fields = []
+            data = {"_t": txt}
+            lines = [txt]
+            screen = END_PREFIX + txt
+            if len(screen) <= SCREEN_BUDGET:
+                return screen, "result"
+            self._queue_sms(dep, msisdn, mh, txt)
+            return END_PREFIX + SMS_MSG, "sms_long"
         items = data if isinstance(data, list) else [data if isinstance(data, dict) else {}]
         lines = []
         for item in items:

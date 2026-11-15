@@ -4,6 +4,7 @@ import os
 from alembic import context
 from sqlalchemy import create_engine
 
+import revenant.api.models  # noqa: F401  (registers platform tables)
 from revenant.runtime.store import metadata
 
 config = context.config

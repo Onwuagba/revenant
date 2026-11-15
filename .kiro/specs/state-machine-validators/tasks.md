@@ -2,51 +2,51 @@
 
 Prerequisite: spec `ir-type-subset` tasks 1-8. One task at a time; run the named tests after each.
 
-- [ ] 1. gsm7 module
+- [x] 1. gsm7 module
   - Transliteration table, `is_gsm7`, control-char stripping, septet counting, `sanitise_slot`.
   - Unit tests incl. emoji, curly quotes, `CON ` injection, `*`, `#`.
   - _Requirements: 2.3, 2.4_
-- [ ] 2. Machine data model
+- [x] 2. Machine data model
   - Pydantic models for State, Transition, Machine with the 9 state kinds; canonical dump.
   - _Requirements: 1.1_
-- [ ] 3. Planner: single read operation
+- [x] 3. Planner: single read operation
   - ROOT menu -> param prompts -> ACTION -> RESULT_END/SMS_END; `0`/`00` transitions everywhere.
   - Unit test on a one-op IR.
   - _Requirements: 1.1, 1.7_
-- [ ] 4. Planner: multiple ops, root menu, pagination
+- [x] 4. Planner: multiple ops, root menu, pagination
   - Root with <=7 entries; paginated menus (5 per page, `8 More`); deterministic ordering.
   - _Requirements: 1.2, 1.3, 1.6_
-- [ ] 5. Planner: writes, PIN, retries
+- [x] 5. Planner: writes, PIN, retries
   - CONFIRM before write ACTION; PIN last then terminal; 3 invalid inputs -> ERROR_END.
   - Unit test with the clinic IR from `examples/specs`.
   - _Requirements: 1.4, 1.5, 1.8_
-- [ ] 6. Renderer with slot budgets
+- [x] 6. Renderer with slot budgets
   - Templates, slots, `static_len`, `worst_case_len` using `carrier_profile`.
   - Unit test: `worst_case_len` correct for a known screen; profile 160 differs from 182.
   - _Requirements: 2.1, 2.2_
-- [ ] 7. Result pagination and SMS template sizing
+- [x] 7. Result pagination and SMS template sizing
   - Top-K per page by budget; remaining via SMS; `sms_template` worst-case segments.
   - _Requirements: 2.5_
-- [ ] 8. Validators V1-V3 (reachability, exits, back)
+- [x] 8. Validators V1-V3 (reachability, exits, back)
   - Machine-readable results; shared graph helpers.
   - _Requirements: 3.1, 3.2, 3.3_
-- [ ] 9. Validators V4-V6 (steps, length/charset, PIN)
+- [x] 9. Validators V4-V6 (steps, length/charset, PIN)
   - _Requirements: 3.4, 3.5, 3.6_
-- [ ] 10. Validators V7-V8 and `run_all`
+- [x] 10. Validators V7-V8 and `run_all`
   - SMS fallback sizing, refusal soundness, run all validators and return every result.
   - _Requirements: 3.7, 3.8, 3.9_
-- [ ] 11. Mutation self-tests
+- [x] 11. Mutation self-tests
   - Fixtures for the 6 mutations; assert each is flagged by exactly the intended validator.
   - _Requirements: 4.1, 4.2_
-- [ ] 12. Bundle assembly and `bundle_hash`
+- [x] 12. Bundle assembly and `bundle_hash`
   - `emit.py` core: canonical bundle JSON and sha256 hash. Extend `test_P13` from the ir-type-subset spec to cover machine and screens.
   - _Requirements: 5.1_
-- [ ] 13. Property tests P1, P2, P3
+- [x] 13. Property tests P1, P2, P3
   - `test_P1_*`, `test_P2_*`, `test_P3_*` marked `pbt`; use `st_app()`, `st_slot_fill()`, `st_label()` from `tests/pbt/strategies.py`.
   - Run `pytest -m pbt --hypothesis-profile=dev -x`.
-- [ ] 14. Property tests P4, P5
+- [x] 14. Property tests P4, P5
   - Include random key walks that must terminate within `max_steps + retries`.
-- [ ] 15. Property tests P6, P10
+- [x] 15. Property tests P6, P10
   - Permute operation order and JSON key order; assert identical `bundle_hash`. Pagination covers every item exactly once.
 - [ ] 16. Run the `ci` profile and record
   - Run `--hypothesis-profile=ci`; record the printed seed and example counts in the task summary. Do not invent numbers.

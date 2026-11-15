@@ -10,6 +10,7 @@ cumulative text.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date, timedelta
 from typing import Any
 
 from ..compiler.planner import StateKind, TERMINAL_KINDS
@@ -131,6 +132,17 @@ def render_response(
 DEFAULT_MAX_INPUT = 20
 
 
+def _menu_value(state: dict[str, Any], key: str, today: date | None) -> str:
+    """Map a menu key press to the option value (enum value, bool, ISO date)."""
+    opts = state.get("options") or []
+    if not key.isdigit() or not (1 <= int(key) <= len(opts)):
+        return key
+    val = opts[int(key) - 1]
+    if val.startswith("+") and val[1:].isdigit():
+        return ((today or date.today()) + timedelta(days=int(val[1:]))).isoformat()
+    return val
+
+
 @dataclass
 class Trace:
     """Result of a full replay: where we are and what was collected.
@@ -167,7 +179,7 @@ def _valid_input(spec: dict[str, Any], value: str) -> bool:
     return True
 
 
-def replay_full(bundle: dict[str, Any], text: str) -> Trace:
+def replay_full(bundle: dict[str, Any], text: str, today: date | None = None) -> Trace:
     """Replay ``text`` over ``bundle['machine']``, collecting parameters.
 
     Pure: no I/O. Invalid inputs (bad length/enum, unknown menu key) keep the
@@ -211,8 +223,9 @@ def replay_full(bundle: dict[str, Any], text: str) -> Trace:
                 trace.pin = segment
             else:
                 trace.params[state["param_name"]] = segment
-        elif kind == "MENU" and state.get("param_name") and segment in transitions:
-            trace.params[state["param_name"]] = segment
+        elif (kind == "MENU" and state.get("param_name") and segment in transitions
+              and segment not in ("0", "00")):
+            trace.params[state["param_name"]] = _menu_value(state, segment, today)
         trace.state_id = next_id
         trace.op_id = states[next_id].get("op_id", "") or trace.op_id
     return trace

@@ -68,6 +68,8 @@ class State(BaseModel):
     next_page: str | None = None
     param_name: str = ""
     prev: str = ""
+    #: Menu option values for param menus, in key order (key i+1 -> options[i]).
+    options: list[str] = Field(default_factory=list)
 
 
 class Machine(BaseModel):
@@ -97,6 +99,34 @@ def _param_kind(p: Param) -> StateKind:
                   ParamType.DATE_WINDOW, ParamType.BOOLEAN):
         return StateKind.MENU
     return StateKind.INPUT
+
+
+#: Max selectable options on a param menu (keys 1-5; 0/00 are navigation).
+MAX_MENU_OPTIONS = 5
+
+
+def menu_options(p: Param) -> list[str]:
+    """Option values for a param menu: enum values, true/false, or +N day offsets."""
+    if p.type == ParamType.ENUM_MENU and p.constraints.enum:
+        return [str(v) for v in p.constraints.enum[:MAX_MENU_OPTIONS]]
+    if p.type == ParamType.BOOLEAN:
+        return ["true", "false"]
+    if p.type == ParamType.DATE_WINDOW:
+        n = min(p.constraints.window or MAX_MENU_OPTIONS, MAX_MENU_OPTIONS)
+        return [f"+{i}" for i in range(n)]
+    return []
+
+
+def menu_label(value: str) -> str:
+    """Human label for a menu option value."""
+    if value == "true":
+        return "Yes"
+    if value == "false":
+        return "No"
+    if value.startswith("+") and value[1:].isdigit():
+        n = int(value[1:])
+        return {0: "Today", 1: "Tomorrow"}.get(n, f"In {n} days")
+    return value
 
 
 def plan(app: App, refused_op_ids: set[str] | None = None) -> Machine:
@@ -204,7 +234,11 @@ def _build_op_flow(machine: Machine, op: Operation) -> str:
             if kind in (StateKind.INPUT, StateKind.PIN, StateKind.ACTION):
                 state.transitions["*"] = nxt
             elif kind == StateKind.MENU:
-                state.transitions["1"] = nxt
+                leaf_p = next((q for q in leaf if q.name == pname), None)
+                opts = menu_options(leaf_p) if leaf_p else []
+                state.options = opts
+                for k in range(1, max(len(opts), 1) + 1):
+                    state.transitions[str(k)] = nxt
             elif kind == StateKind.CONFIRM:
                 state.transitions["1"] = nxt
                 state.transitions["2"] = root

@@ -2,45 +2,45 @@
 
 Prerequisite: compiler, runtime and platform API (`/api/v1`) exist. One task at a time. Do NOT start before the compiler specs are done.
 
-- [ ] 1. Frontend scaffold
+- [x] 1. Frontend scaffold
   - Vite + React 18 + TS in `frontend/`, router, TanStack Query, typed API client stub. `npm run build` and typecheck pass.
   - _Requirements: 1.1_
-- [ ] 2. Crypt theme tokens and AppShell
+- [x] 2. Crypt theme tokens and AppShell
   - CSS variables, AppShell, NavRail, SignalBars (icon + text status).
   - _Requirements: 1.1, 1.4_
-- [ ] 3. Page states and routing
+- [x] 3. Page states and routing
   - Routes `/`, `/login`, `/crypt`, `/crypt/:slug`, `/seance`, `/judges`, `/settings`, `/404` each with loading, empty, error states.
   - _Requirements: 1.3_
-- [ ] 4. Crypt (projects) page and sample picker
+- [x] 4. Crypt (projects) page and sample picker
   - List projects, read-only samples, sample picker.
   - _Requirements: 6.1_
-- [ ] 5. Exhume panel and Buried list
+- [x] 5. Exhume panel and Buried list
   - Upload / MCP URL form, refusal list with codes.
   - _Requirements: 2.1_
-- [ ] 6. Reanimate panel with SSE log
+- [x] 6. Reanimate panel with SSE log
   - Stage timeline, log stream, Kiro event feed, annotator badge showing cached vs fresh.
   - _Requirements: 1.2, 2.1, 2.2_
-- [ ] 7. State graph
+- [x] 7. State graph
   - React Flow graph from the bundle; plain tree-list fallback.
   - _Requirements: 3.1_
-- [ ] 8. Screen inspector and char counter
+- [x] 8. Screen inspector and char counter
   - Show count/limit and worst-case for slots from `screens.json`.
   - _Requirements: 3.2_
-- [ ] 9. Last Rites panel
+- [x] 9. Last Rites panel
   - Validator list, violation detail, worst-case table.
   - _Requirements: 2.1_
-- [ ] 10. Emulator phone shell
+- [x] 10. Emulator phone shell
   - Keypad, fixed-width monospace LCD at profile width, `aria-live`, keyboard operation, "simulated handset" badge.
   - _Requirements: 4.1, 4.4, 4.5_
-- [ ] 11. Emulator wiring and SMS inbox
+- [x] 11. Emulator wiring and SMS inbox
   - Session start/input via the emulator API; inbox view.
   - _Requirements: 4.2, 4.3_
-- [ ] 12. Rise panel
+- [x] 12. Rise panel
   - Deployment card, callback URL shown once, AT channel steps, SMS provider select.
   - _Requirements: 1.2_
-- [ ] 13. Judges page
+- [x] 13. Judges page
   - Checklist with links; wording per steering `product.md`; no unmeasured numbers.
   - _Requirements: 5.1, 5.2_
-- [ ] 14. Playwright smoke test and a11y pass
+- [x] 14. Playwright smoke test and a11y pass
   - One end-to-end smoke test; keyboard-only pass on emulator.
   - _Requirements: 4.5_

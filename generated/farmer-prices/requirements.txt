@@ -1,0 +1,7 @@
+revenant
+fastapi
+uvicorn
+sqlalchemy
+python-multipart
+cryptography
+httpx

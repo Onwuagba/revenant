@@ -1,0 +1,17 @@
+# Single-host demo deployment. Caddy terminates TLS; set REVENANT_HOST to your domain.
+# The Kiro CLI is NOT bundled: without it (or KIRO_API_KEY) compiles use the deterministic annotator and say so.
+services:
+  api:
+    build: .
+    env_file: .env
+    environment:
+      REVENANT_DATABASE_URL: sqlite+pysqlite:////data/revenant.db
+    volumes: ["data:/data"]
+    expose: ["8000"]
+  caddy:
+    image: caddy:2
+    ports: ["80:80", "443:443"]
+    environment: { REVENANT_HOST: "${REVENANT_HOST:-localhost}" }
+    volumes: ["./infrastructure/Caddyfile:/etc/caddy/Caddyfile:ro", "caddy:/data"]
+    depends_on: [api]
+volumes: { data: {}, caddy: {} }
