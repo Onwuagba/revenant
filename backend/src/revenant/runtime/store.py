@@ -69,6 +69,13 @@ sms_outbox = sa.Table(
     sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
 )
 
+annotation_cache = sa.Table(
+    "annotation_cache", metadata,
+    sa.Column("spec_hash", sa.String(64), primary_key=True),
+    sa.Column("agent_version", sa.String(32), primary_key=True),
+    sa.Column("annotations", sa.Text, nullable=False),
+)
+
 #: Tables whose rows are dumped by the canary test.
 ALL_TABLES = [ussd_sessions, session_events, option_cache, pin_attempts, sms_outbox]
 

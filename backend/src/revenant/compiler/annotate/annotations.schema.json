@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Revenant USSD annotations",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["operations"],
+  "properties": {
+    "version": {"const": 1},
+    "operations": {
+      "type": "object",
+      "maxProperties": 200,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "label": {"type": "string", "minLength": 1, "maxLength": 24},
+          "risk": {"enum": ["low", "money", "identity"]},
+          "hide": {"type": "boolean"},
+          "sms-only": {"type": "boolean"},
+          "params": {
+            "type": "object",
+            "maxProperties": 100,
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "label": {"type": "string", "minLength": 1, "maxLength": 20},
+                "secret": {"enum": ["pin"]},
+                "date-window": {"type": "integer", "minimum": 1, "maximum": 14},
+                "options-from": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["op_id", "value_path", "label_path"],
+                  "properties": {
+                    "op_id": {"type": "string", "maxLength": 128},
+                    "value_path": {"type": "string", "maxLength": 128},
+                    "label_path": {"type": "string", "maxLength": 128}
+                  }
+                },
+                "interpret": {"type": "boolean"}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
