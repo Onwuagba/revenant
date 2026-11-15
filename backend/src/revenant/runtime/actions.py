@@ -25,6 +25,7 @@ class ActionOutcome(str, Enum):
     LONG = "long"
     ERROR = "error"
     ASYNC = "async"
+    AUTH_FAILED = "auth_failed"
 
 
 @dataclass
@@ -61,16 +62,30 @@ async def call_upstream(
     key = make_idempotency_key(session_id, state_id, params)
     headers = {"Idempotency-Key": key, "Content-Type": "application/json"}
 
+    own_client = http_client is None
     client = http_client or httpx.AsyncClient(timeout=deadline)
     try:
-        resp = await client.request(method, url, json=params, headers=headers)
+        if method.upper() == "GET":
+            resp = await client.request(method, url, params=params, headers=headers)
+        else:
+            resp = await client.request(method, url, json=params, headers=headers)
+    except httpx.TimeoutException:
+        logger.warning("Upstream timeout for %s", url)
+        return ActionResult(outcome=ActionOutcome.SLOW)
     except Exception as exc:
+        # Never include str(exc): httpx messages can echo request details.
         logger.warning("Upstream error for %s: %s", url, type(exc).__name__)
-        return ActionResult(outcome=ActionOutcome.ERROR, error=str(exc))
+        return ActionResult(outcome=ActionOutcome.ERROR, error=type(exc).__name__)
+
+    if own_client:
+        await client.aclose()
 
     # Check for timeout/async
     if resp.status_code == 202:
         return ActionResult(outcome=ActionOutcome.ASYNC)
+
+    if resp.status_code in (401, 403):
+        return ActionResult(outcome=ActionOutcome.AUTH_FAILED)
 
     if resp.status_code >= 500:
         return ActionResult(outcome=ActionOutcome.ERROR, error=f"HTTP {resp.status_code}")
@@ -80,10 +95,6 @@ async def call_upstream(
     except Exception:
         data = {"text": resp.text}
 
-    # Check if result is too long for a screen (simplified)
-    result_str = str(data)
-    if len(result_str) > 178:  # body budget
-        return ActionResult(outcome=ActionOutcome.LONG, data=data,
-                            sms_body=str(data)[:1000])
-
+    # Screen-budget (LONG) decisions are made by the service on the *rendered*
+    # text, not on the raw upstream payload.
     return ActionResult(outcome=ActionOutcome.OK, data=data)

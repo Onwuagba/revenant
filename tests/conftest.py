@@ -16,6 +16,8 @@ from hypothesis import settings, HealthCheck
 
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line("markers", "pbt: property-based tests using Hypothesis")
+    config.addinivalue_line("markers", "integration: integration tests using in-process mocks")
+    config.addinivalue_line("markers", "e2e: end-to-end tests")
 
 
 # ---------------------------------------------------------------------------

@@ -57,83 +57,64 @@ def build_router(
     token: str,
     *,
     store: InMemoryBundleStore | None = None,
+    engine: Any = None,
+    upstream_base: str = "",
+    http_client: Any = None,
+    deployment_id: str = "dep-1",
+    sms_provider: Any = None,
 ) -> Any:
     """Build a FastAPI app with the USSD callback route.
 
-    Args:
-        bundle: the compiled bundle (machine + screens).
-        token: the expected callback token (stored hashed).
-        store: optional shared store (for multiple bundles). If None, a
-            single-bundle store is created.
-
-    Returns a FastAPI app instance.
+    ``engine`` is a SQLAlchemy engine (in-memory SQLite if omitted). The app
+    exposes ``app.state.service``, ``app.state.engine`` and ``app.state.worker``.
     """
+    from .service import Deployment, UssdService, ERROR_MSG
+    from .sms import EmulatorSms
+    from .store import MsisdnCodec, create_all, make_engine
+    from .worker import SmsWorker
+
     if store is None:
         store = InMemoryBundleStore()
-        slug = bundle.get("ir", {}).get("slug", "app")
-        store.register(slug, bundle, token)
-    # Find the slug
-    slug = bundle.get("ir", {}).get("slug", "app")
+        store.register(bundle.get("ir", {}).get("slug", "app"), bundle, token)
+    if engine is None:
+        engine = make_engine()
+    create_all(engine)
+    codec = MsisdnCodec()
+    service = UssdService(engine=engine, codec=codec, http_client=http_client)
+    provider = sms_provider or EmulatorSms()
 
     app = FastAPI()
+    app.state.service = service
+    app.state.engine = engine
+    app.state.sms_provider = provider
+    app.state.worker = SmsWorker(engine, codec, provider)
     setup_redaction(logger)
 
     @app.post("/ussd/{slug}/{token}", response_class=PlainTextResponse)
-    async def ussd_callback(
-        slug: str,
-        token: str,
-        request: Request,
-    ) -> Response:
-        # Token check
+    async def ussd_callback(slug: str, token: str, request: Request) -> Response:
         if not store.verify_token(slug, token):
             return PlainTextResponse("Not found", status_code=404)
-
-        bundle = store.get_bundle(slug)
-        if bundle is None:
+        bundle_ = store.get_bundle(slug)
+        if bundle_ is None or bundle_.get("machine") is None:
             return PlainTextResponse("Not found", status_code=404)
-
-        machine_data = bundle.get("machine")
-        if machine_data is None:
-            return PlainTextResponse("END Service unavailable")
-
-        # Parse form (handle malformed gracefully)
         try:
             form = await request.form()
-            session_id = form.get("sessionId", "")
-            phone_number = form.get("phoneNumber", "")
+            session_id = str(form.get("sessionId", "") or "")
+            phone = str(form.get("phoneNumber", "") or "")
             text = form.get("text", "")
+            text = text if isinstance(text, str) else ""
+            if not session_id or not phone:
+                raise ValueError("missing fields")
         except Exception:
             logger.warning("Malformed USSD form for slug=%s", slug)
             return PlainTextResponse("END An error occurred. Try again later.")
+        dep = Deployment(id=deployment_id, slug=slug, bundle=bundle_, upstream_base=upstream_base)
+        try:
+            return PlainTextResponse(await service.handle(dep, session_id, phone, text))
+        except Exception as exc:  # no stack trace, no input echoed
+            logger.error("Callback failed: %s", type(exc).__name__)
+            return PlainTextResponse("END " + ERROR_MSG)
 
-        # Ensure text is a string
-        if not isinstance(text, str):
-            text = str(text) if text else ""
-
-        # Replay from text to get current state
-        state_id, invalid_count = replay(machine_data, text)
-
-        # Check retry limit
-        max_retries = machine_data.get("max_retries", 3)
-        if invalid_count >= max_retries:
-            return PlainTextResponse("END Too many invalid inputs. Try again later.")
-
-        # Determine response
-        from ..compiler.planner import TERMINAL_KINDS
-        states = machine_data["states"]
-        state = states.get(state_id)
-        if state is None:
-            return PlainTextResponse("END Session ended.")
-
-        if state["kind"] in (k.value for k in TERMINAL_KINDS):
-            prefix = END_PREFIX
-        else:
-            prefix = CON_PREFIX
-
-        response_text = render_response(machine_data, state_id, prefix)
-        return PlainTextResponse(response_text)
-
-    # Health check
     @app.get("/healthz")
     async def healthz() -> dict[str, str]:
         return {"status": "ok"}
