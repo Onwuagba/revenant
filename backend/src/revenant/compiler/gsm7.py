@@ -11,7 +11,7 @@ transliterated or refused (``R_NON_GSM7``). The extension table characters cost
 from __future__ import annotations
 
 # ---------------------------------------------------------------------------
-# GSM 03.38 default alphabet (basic table, 0x00–0x7F minus ESC 0x1B)
+# GSM 03.38 default alphabet (basic table, 0x00-0x7F minus ESC 0x1B)
 # ---------------------------------------------------------------------------
 _GSM7_BASIC_CHARS = (
     "@\u00a3$\u00a5\u00e8\u00e9\u00f9\u00ec\u00f2\u00c7\n"

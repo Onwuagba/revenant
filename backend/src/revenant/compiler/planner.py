@@ -183,8 +183,8 @@ def _build_op_flow(machine: Machine, op: Operation) -> str:
     other = [p for p in leaf if p.type != ParamType.PIN]
 
     flow: list[tuple[str, StateKind, str]] = []
-    for p in other:
-        flow.append((f"{op.id}__{p.name}", _param_kind(p), p.name))
+    for i, p in enumerate(other):
+        flow.append((f"{op.id}__step{i}_{p.name}", _param_kind(p), p.name))
     if op.kind == OpKind.WRITE:
         flow.append((f"{op.id}__confirm", StateKind.CONFIRM, ""))
     if pin_params:

@@ -4,7 +4,7 @@ Checks that a URL is safe to fetch: https-only (by default), DNS resolves to
 a public address (not private/loopback/link-local/cloud-metadata), with size
 and time caps. Redirects are re-checked on every hop.
 
-Source: ingestion requirements 3.1–3.4, ``docs/SECURITY.md`` T6/T7/T9.
+Source: ingestion requirements 3.1-3.4, ``docs/SECURITY.md`` T6/T7/T9.
 """
 
 from __future__ import annotations

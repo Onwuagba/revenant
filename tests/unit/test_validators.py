@@ -30,7 +30,7 @@ def _compile(op_id="get_price", title="Get Price", kind="read", params=None):
 class TestRenderer:
     def test_screen_has_template(self):
         app, m = _compile(params=[DraftParam(name="item", schema={"type": "string", "enum": ["a", "b"]})])
-        state = m.states["get_price__item"]
+        state = m.states["get_price__step0_item"]
         assert state.template != ""
         assert state.static_len > 0
 
@@ -78,7 +78,7 @@ class TestValidators:
 
     def test_v3_back_loop_to_self(self):
         app, m = _compile(params=[DraftParam(name="item", schema={"type": "string", "enum": ["a", "b"]})])
-        m.states["get_price__item"].transitions["0"] = "get_price__item"
+        m.states["get_price__step0_item"].transitions["0"] = "get_price__step0_item"
         r = validate_back(m)
         assert not r.passed
 
@@ -135,7 +135,7 @@ class TestMutationSelfTest:
 
     def test_delete_edge(self):
         app, m = self._valid()
-        m.states["get_price__item"].transitions.pop("1", None)
+        m.states["get_price__step0_item"].transitions.pop("1", None)
         r1 = validate_reachability(m)
         r2 = validate_exits(m)
         assert not r1.passed or not r2.passed
@@ -165,7 +165,7 @@ class TestMutationSelfTest:
 
     def test_back_loop_to_self(self):
         app, m = self._valid()
-        m.states["get_price__item"].transitions["0"] = "get_price__item"
+        m.states["get_price__step0_item"].transitions["0"] = "get_price__step0_item"
         r = validate_back(m)
         assert not r.passed
 

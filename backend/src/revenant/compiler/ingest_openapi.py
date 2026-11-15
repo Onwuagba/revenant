@@ -1,7 +1,7 @@
 """OpenAPI ingestion: safe load, own $ref resolver, operation extraction.
 
 Produces draft IR (DraftOperation list) that feeds into the classifier
-(``subset.classify_app``). Source: ingestion requirements 1–2, 5.
+(``subset.classify_app``). Source: ingestion requirements 1-2, 5.
 
 Security: 2 MB raw cap, YAML safe loader with depth/alias limits, local $ref
 resolution only (remote refs -> R_REF_UNRESOLVED, no network call), pattern

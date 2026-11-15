@@ -3,7 +3,7 @@
 A *total* function: any input yields a supported Param or a Refusal with a
 known code — never raises (P7). Patterns are never executed at compile time
 (requirement 3.6). Source of truth: ``architecture/IR_AND_TYPE_SUBSET.md``
-section 3–4.
+section 3-4.
 """
 
 from __future__ import annotations

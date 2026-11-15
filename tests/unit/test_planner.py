@@ -27,8 +27,8 @@ class TestStateMachine:
         ])]
         app, _ = classify_app(drafts)
         m = plan(app)
-        assert "get_price__item" in m.states
-        assert m.states["get_price__item"].kind == StateKind.MENU
+        assert "get_price__step0_item" in m.states
+        assert m.states["get_price__step0_item"].kind == StateKind.MENU
         assert "get_price__action" in m.states
         assert "get_price__result" in m.states
 
@@ -38,7 +38,7 @@ class TestStateMachine:
         ])]
         app, _ = classify_app(drafts)
         m = plan(app)
-        item = m.states["get_price__item"]
+        item = m.states["get_price__step0_item"]
         assert "0" in item.transitions  # back
         assert "00" in item.transitions  # home
         assert item.transitions["00"] == "root"
