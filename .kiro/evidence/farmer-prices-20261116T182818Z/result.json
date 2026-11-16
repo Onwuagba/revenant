@@ -1,0 +1,11 @@
+{
+  "annotator": "kiro-cli",
+  "cached": false,
+  "fallback_reason": "",
+  "kiro_model": "",
+  "transcript_path": ".kiro/evidence/farmer-prices-20261116T182818Z/runs/a6bfff4beaba/transcript.jsonl",
+  "exit_code": 0,
+  "instruction_sha256": "60c8ec20792ce4e51fec88e6eecf742aa8873c44242283f399e514816f3ee3e8",
+  "duration_s": 17.215,
+  "repair_attempts": 0
+}

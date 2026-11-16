@@ -1,0 +1,11 @@
+{
+  "annotator": "kiro-cli",
+  "cached": false,
+  "fallback_reason": "",
+  "kiro_model": "",
+  "transcript_path": ".kiro/evidence/adversarial2-20261116T183000Z/runs/60c8a6605281/transcript.jsonl",
+  "exit_code": 0,
+  "instruction_sha256": "60c8ec20792ce4e51fec88e6eecf742aa8873c44242283f399e514816f3ee3e8",
+  "duration_s": 18.801,
+  "repair_attempts": 0
+}
