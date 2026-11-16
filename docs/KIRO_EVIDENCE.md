@@ -37,5 +37,5 @@ to fire in the IDE.
 
 ## Still to do with a key
 1. ~~Clinic smoke run~~ done 2026-11-16 (see above). farmer-prices and adversarial runs done the same day.
-2. Run the adversarial spec through the real path (spec `kiro-compile-step`, task 13).
+2. ~~Adversarial spec through the real path~~ done (see Runs 2 and 3).
 3. Confirm hook triggers and the agent permission rules with a deliberate denied-action test.
