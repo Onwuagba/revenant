@@ -73,25 +73,26 @@ def _load_json(text: str) -> Any:
     return doc
 
 
+class _CountingLoader(yaml.SafeLoader):
+    """SafeLoader that counts constructed nodes, so alias bombs stop early."""
+
+    def __init__(self, stream: str) -> None:
+        super().__init__(stream)
+        self.node_count = 0
+
+    def construct_object(self, node: yaml.Node, deep: bool = False) -> Any:
+        self.node_count += 1
+        if self.node_count > MAX_DOC_ELEMENTS:
+            raise IngestError(
+                "TOO_MANY_NODES",
+                f"YAML document has more than {MAX_DOC_ELEMENTS} nodes (alias bomb?)",
+            )
+        return super().construct_object(node, deep)
+
+
 def _load_yaml(text: str) -> Any:
     """Safe YAML load with alias and depth limits."""
-    # Use a custom loader that limits alias references
-    loader = yaml.SafeLoader(text)
-
-    # Patch construct_object to count nodes (anti alias-bomb)
-    node_count = [0]
-
-    original_construct_object = loader.construct_object
-
-    def counting_construct_object(node, deep=False):  # type: ignore[no-untyped-def]
-        node_count[0] += 1
-        if node_count[0] > MAX_DOC_ELEMENTS:
-            raise IngestError("TOO_MANY_NODES",
-                               f"YAML document has more than {MAX_DOC_ELEMENTS} nodes (alias bomb?)")
-        return original_construct_object(node, deep)
-
-    loader.construct_object = counting_construct_object
-
+    loader = _CountingLoader(text)
     try:
         doc = loader.get_single_data()
     except yaml.YAMLError as exc:
@@ -109,11 +110,9 @@ def _check_depth_and_size(obj: Any, depth: int = 0, count: list[int] | None = No
         count = [0]
     count[0] += 1
     if count[0] > MAX_DOC_ELEMENTS:
-        raise IngestError("TOO_MANY_ELEMENTS",
-                          f"Document exceeds {MAX_DOC_ELEMENTS} elements")
+        raise IngestError("TOO_MANY_ELEMENTS", f"Document exceeds {MAX_DOC_ELEMENTS} elements")
     if depth > MAX_DOC_DEPTH:
-        raise IngestError("TOO_DEEP",
-                          f"Document exceeds depth limit of {MAX_DOC_DEPTH}")
+        raise IngestError("TOO_DEEP", f"Document exceeds depth limit of {MAX_DOC_DEPTH}")
     if isinstance(obj, dict):
         for v in obj.values():
             _check_depth_and_size(v, depth + 1, count)
@@ -228,18 +227,18 @@ def _extract_params(
         if isinstance(schema, dict) and "$ref" in schema:
             resolved = resolver.resolve_schema(schema)
             if isinstance(resolved, Refusal):
-                refusals.append(
-                    Refusal.make(op_id, f"#/params/{name}", resolved.code)
-                )
+                refusals.append(Refusal.make(op_id, f"#/params/{name}", resolved.code))
                 continue
             schema = resolved
 
-        draft_params.append(DraftParam(
-            name=name,
-            schema=schema if isinstance(schema, dict) else {},
-            required=required,
-            in_location=in_loc,
-        ))
+        draft_params.append(
+            DraftParam(
+                name=name,
+                json_schema=schema if isinstance(schema, dict) else {},
+                required=required,
+                in_location=in_loc,
+            )
+        )
 
     # Request body (usually a flat object schema)
     if body_schema is not None:
@@ -250,12 +249,14 @@ def _extract_params(
                 refusals.append(resolved)
                 return draft_params, refusals
             body_schema = resolved
-        draft_params.append(DraftParam(
-            name="body",
-            schema=body_schema,
-            required=True,
-            in_location="body",
-        ))
+        draft_params.append(
+            DraftParam(
+                name="body",
+                json_schema=body_schema,
+                required=True,
+                in_location="body",
+            )
+        )
 
     return draft_params, refusals
 
@@ -306,7 +307,9 @@ def _get_response_schema(op_obj: dict[str, Any], resolver: RefResolver) -> dict[
     return None
 
 
-def ingest_openapi(raw: bytes | str, *, slug: str = "app") -> tuple[list[DraftOperation], list[Refusal]]:
+def ingest_openapi(
+    raw: bytes | str, *, slug: str = "app"
+) -> tuple[list[DraftOperation], list[Refusal]]:
     """Ingest an OpenAPI document into draft operations.
 
     Returns (draft_operations, ingest_refusals). The caller passes
@@ -345,21 +348,24 @@ def ingest_openapi(raw: bytes | str, *, slug: str = "app") -> tuple[list[DraftOp
         if not isinstance(path_params, list):
             path_params = []
 
-        for method in sorted(k for k in path_item if k.lower() in
-                             ("get", "post", "put", "patch", "delete")):
+        for method in sorted(
+            k for k in path_item if k.lower() in ("get", "post", "put", "patch", "delete")
+        ):
             op_obj = path_item[method]
             if not isinstance(op_obj, dict):
                 continue
 
             # Operation id
-            op_id = op_obj.get("operationId")
+            raw_id = op_obj.get("operationId")
+            op_id = str(raw_id) if isinstance(raw_id, (str, int)) and raw_id != "" else ""
             generated = False
             if not op_id:
                 op_id = _generate_op_id(method, path)
-                generated = True
+                generated = True  # flagged in the report (requirement 1.3)
 
             # Title from summary or operationId
-            title = op_obj.get("summary", op_id)[:24]
+            summary = op_obj.get("summary")
+            title = (summary if isinstance(summary, str) and summary else op_id)[:24]
 
             # Kind from method
             kind = OpKind.READ if method.lower() == "get" else OpKind.WRITE
@@ -373,29 +379,30 @@ def ingest_openapi(raw: bytes | str, *, slug: str = "app") -> tuple[list[DraftOp
             body_schema = _get_body_schema(op_obj, resolver)
             result_schema = _get_response_schema(op_obj, resolver)
 
-            draft_params, param_refusals = _extract_params(
-                all_params, body_schema, resolver, op_id
-            )
+            draft_params, param_refusals = _extract_params(all_params, body_schema, resolver, op_id)
 
             if param_refusals:
                 ingest_refusals.extend(param_refusals)
 
             # Risk: money/identity hint from tags or summary keywords
             risk = Risk.LOW
-            summary_lower = (op_obj.get("summary", "") + " " + op_id).lower()
+            summary_lower = ((summary if isinstance(summary, str) else "") + " " + op_id).lower()
             if any(w in summary_lower for w in ("pay", "transfer", "send", "money")):
                 risk = Risk.MONEY
             elif any(w in summary_lower for w in ("login", "pin", "auth", "password")):
                 risk = Risk.IDENTITY
 
-            draft_ops.append(DraftOperation(
-                id=op_id,
-                source_ref=f"{method.upper()} {path}",
-                kind=kind,
-                title=title,
-                params=draft_params,
-                result_schema=result_schema,
-                risk=risk,
-            ))
+            draft_ops.append(
+                DraftOperation(
+                    id=op_id,
+                    source_ref=f"{method.upper()} {path}",
+                    kind=kind,
+                    title=title,
+                    params=draft_params,
+                    result_schema=result_schema,
+                    risk=risk,
+                    id_generated=generated,
+                )
+            )
 
     return draft_ops, ingest_refusals

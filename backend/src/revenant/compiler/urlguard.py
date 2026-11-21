@@ -75,11 +75,13 @@ _BLOCKED_NETWORKS: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = [
 ]
 
 #: Cloud metadata hostnames to block even before DNS.
-_BLOCKED_HOSTS: frozenset[str] = frozenset({
-    "metadata.google.internal",
-    "169.254.169.254",
-    "metadata.aws.internal",
-})
+_BLOCKED_HOSTS: frozenset[str] = frozenset(
+    {
+        "metadata.google.internal",
+        "169.254.169.254",
+        "metadata.aws.internal",
+    }
+)
 
 
 def _is_blocked_ip(ip_str: str) -> bool:
@@ -100,9 +102,8 @@ def _resolve_host(host: str, port: int) -> str:
         infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
     except socket.gaierror as exc:
         raise UrlGuardError("DNS_RESOLVE_FAILED", f"Cannot resolve {host}: {exc}") from exc
-    for family, _type, _proto, _canon, sockaddr in infos:
-        ip = sockaddr[0]
-        return ip
+    for _family, _type, _proto, _canon, sockaddr in infos:
+        return str(sockaddr[0])
     raise UrlGuardError("DNS_RESOLVE_FAILED", f"No address records for {host}")
 
 

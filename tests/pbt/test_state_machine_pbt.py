@@ -12,17 +12,15 @@ P10: pagination covers every item exactly once; each page within budget
 from __future__ import annotations
 
 import pytest
-from hypothesis import given, settings, assume
-from hypothesis import strategies as st
-
-from revenant.compiler.ir import DraftOperation, DraftParam
-from revenant.compiler.subset import classify_app
-from revenant.compiler.planner import plan, StateKind, TERMINAL_KINDS, SCREEN_KINDS
-from revenant.compiler.render import render
+from hypothesis import assume, given, settings
 from revenant.compiler.emit import compile_app
 from revenant.compiler.gsm7 import is_gsm7
+from revenant.compiler.ir import DraftOperation
+from revenant.compiler.planner import SCREEN_KINDS, TERMINAL_KINDS, StateKind, plan
+from revenant.compiler.render import render
+from revenant.compiler.subset import classify_app
 
-from .strategies import st_app, st_slot_fill
+from .strategies import st_app
 
 
 def _compile_machine(drafts):
@@ -135,9 +133,7 @@ class TestP4BackNavigation:
                 continue
             if state.kind in TERMINAL_KINDS or state.kind == StateKind.ACTION:
                 continue
-            assert state.transitions.get("00") == machine.root, (
-                f"State {sid}: 00 != ROOT"
-            )
+            assert state.transitions.get("00") == machine.root, f"State {sid}: 00 != ROOT"
 
 
 @pytest.mark.pbt
@@ -150,6 +146,7 @@ class TestP5StepLimit:
         app, machine = _compile_machine(drafts)
         max_steps = machine.carrier_profile.max_steps
         from collections import deque
+
         dist = {machine.root: 0}
         queue = deque([machine.root])
         while queue:

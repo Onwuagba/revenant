@@ -3,7 +3,7 @@ invalid-input retries must be bounded."""
 
 from __future__ import annotations
 
-from ..planner import Machine, StateKind, TERMINAL_KINDS
+from ..planner import TERMINAL_KINDS, Machine, StateKind
 from . import ValidationResult, Violation
 
 
@@ -13,8 +13,7 @@ def validate_exits(machine: Machine) -> ValidationResult:
     terminals = {sid for sid, s in machine.states.items() if s.kind in TERMINAL_KINDS}
 
     if not terminals:
-        violations.append(Violation(
-            validator="V2_exits", message="No terminal states exist"))
+        violations.append(Violation(validator="V2_exits", message="No terminal states exist"))
         return ValidationResult("V2_exits", False, violations)
 
     can_reach_terminal = _reachability_to_set(machine, terminals)
@@ -26,15 +25,22 @@ def validate_exits(machine: Machine) -> ValidationResult:
         if state.kind == StateKind.ACTION:
             continue
         if sid not in can_reach_terminal:
-            violations.append(Violation(
-                validator="V2_exits", state_id=sid,
-                message=f"State {sid} has no path to a terminal state"))
+            violations.append(
+                Violation(
+                    validator="V2_exits",
+                    state_id=sid,
+                    message=f"State {sid} has no path to a terminal state",
+                )
+            )
 
     # Check retry bound
     if machine.max_retries > 10:
-        violations.append(Violation(
-            validator="V2_exits",
-            message=f"Retry limit {machine.max_retries} is unreasonably high"))
+        violations.append(
+            Violation(
+                validator="V2_exits",
+                message=f"Retry limit {machine.max_retries} is unreasonably high",
+            )
+        )
 
     return ValidationResult("V2_exits", len(violations) == 0, violations)
 

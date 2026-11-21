@@ -17,9 +17,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from hypothesis import settings, strategies as st
+from hypothesis import settings
+from hypothesis import strategies as st
 from hypothesis.stateful import RuleBasedStateMachine, invariant, rule
-
 from revenant.compiler.emit import compile_app
 from revenant.compiler.ingest_openapi import ingest_openapi
 from revenant.compiler.subset import classify_app
@@ -48,7 +48,9 @@ def _clinic_bundle() -> dict:
 
 # Keys: navigation, menu digits, ids/PIN-like tokens, adversarial text. No "*" or "#".
 st_key = st.one_of(
-    st.sampled_from(["0", "00", "1", "2", "3", "4", "5", "6", "7", "8", "9", "99", "c1", "s1", "2468"]),
+    st.sampled_from(
+        ["0", "00", "1", "2", "3", "4", "5", "6", "7", "8", "9", "99", "c1", "s1", "2468"]
+    ),
     st.text(alphabet="abcXYZ0123456789 -", min_size=1, max_size=30),
 )
 

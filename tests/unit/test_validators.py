@@ -1,22 +1,18 @@
 """Tests for renderer, validators, mutations, and bundle hash (tasks 6-12)."""
 
-import copy
-import pytest
-
-from revenant.compiler.ir import App, Operation, Param, ParamType, DraftOperation, DraftParam
-from revenant.compiler.subset import classify_app
-from revenant.compiler.planner import plan, StateKind, Slot, State, Machine
+from revenant.compiler.emit import compile_app
+from revenant.compiler.ir import DraftOperation, DraftParam
+from revenant.compiler.planner import Slot, State, StateKind, plan
 from revenant.compiler.render import render
-from revenant.compiler.emit import compile_app, bundle_hash
+from revenant.compiler.subset import classify_app
 from revenant.compiler.validators import run_all
-from revenant.compiler.validators.reachability import validate_reachability
-from revenant.compiler.validators.exits import validate_exits
 from revenant.compiler.validators.back import validate_back
-from revenant.compiler.validators.steps import validate_steps
+from revenant.compiler.validators.exits import validate_exits
 from revenant.compiler.validators.length import validate_length
 from revenant.compiler.validators.pin import validate_pin
-from revenant.compiler.validators.sms import validate_sms
+from revenant.compiler.validators.reachability import validate_reachability
 from revenant.compiler.validators.refusal_soundness import validate_refusal_soundness
+from revenant.compiler.validators.steps import validate_steps
 
 
 def _compile(op_id="get_price", title="Get Price", kind="read", params=None):
@@ -29,29 +25,49 @@ def _compile(op_id="get_price", title="Get Price", kind="read", params=None):
 
 class TestRenderer:
     def test_screen_has_template(self):
-        app, m = _compile(params=[DraftParam(name="item", schema={"type": "string", "enum": ["a", "b"]})])
+        app, m = _compile(
+            params=[DraftParam(name="item", json_schema={"type": "string", "enum": ["a", "b"]})]
+        )
         state = m.states["get_price__step0_item"]
         assert state.template != ""
         assert state.static_len > 0
 
     def test_worst_case_computed(self):
-        app, m = _compile(params=[DraftParam(name="item", schema={"type": "string", "enum": ["a", "b"]})])
+        app, m = _compile(
+            params=[DraftParam(name="item", json_schema={"type": "string", "enum": ["a", "b"]})]
+        )
         for s in m.states.values():
             if s.kind in (StateKind.MENU, StateKind.INPUT, StateKind.CONFIRM, StateKind.PIN):
                 assert s.worst_case_len >= s.static_len + 4
 
     def test_worst_case_within_budget(self):
-        app, m = _compile(params=[DraftParam(name="item", schema={"type": "string", "enum": ["a", "b"]})])
+        app, m = _compile(
+            params=[DraftParam(name="item", json_schema={"type": "string", "enum": ["a", "b"]})]
+        )
         max_chars = m.carrier_profile.max_chars
         for s in m.states.values():
             assert s.worst_case_len <= max_chars
 
     def test_pin_template_never_shows_pin_digits(self):
-        app, m = _compile(op_id="pay", title="Pay", kind="write", params=[
-            DraftParam(name="amount", schema={"type": "integer", "minimum": 1, "maximum": 100}),
-            DraftParam(name="pin", schema={"type": "string", "x-revenant-secret": "pin",
-                       "minLength": 4, "maxLength": 6}),
-        ])
+        app, m = _compile(
+            op_id="pay",
+            title="Pay",
+            kind="write",
+            params=[
+                DraftParam(
+                    name="amount", json_schema={"type": "integer", "minimum": 1, "maximum": 100}
+                ),
+                DraftParam(
+                    name="pin",
+                    json_schema={
+                        "type": "string",
+                        "x-revenant-secret": "pin",
+                        "minLength": 4,
+                        "maxLength": 6,
+                    },
+                ),
+            ],
+        )
         pin_state = m.states["pay__pin"]
         assert "PIN" in pin_state.template.upper() or "pin" in pin_state.template.lower()
         assert "1234" not in pin_state.template
@@ -60,9 +76,16 @@ class TestRenderer:
 
 class TestValidators:
     def test_valid_bundle_all_pass(self):
-        drafts = [DraftOperation(id="get_price", title="Get Price", kind="read", params=[
-            DraftParam(name="item", schema={"type": "string", "enum": ["a", "b"]}),
-        ])]
+        drafts = [
+            DraftOperation(
+                id="get_price",
+                title="Get Price",
+                kind="read",
+                params=[
+                    DraftParam(name="item", json_schema={"type": "string", "enum": ["a", "b"]}),
+                ],
+            )
+        ]
         app, _ = classify_app(drafts)
         m = plan(app)
         render(m, app)
@@ -77,7 +100,9 @@ class TestValidators:
         assert not r.passed
 
     def test_v3_back_loop_to_self(self):
-        app, m = _compile(params=[DraftParam(name="item", schema={"type": "string", "enum": ["a", "b"]})])
+        app, m = _compile(
+            params=[DraftParam(name="item", json_schema={"type": "string", "enum": ["a", "b"]})]
+        )
         m.states["get_price__step0_item"].transitions["0"] = "get_price__step0_item"
         r = validate_back(m)
         assert not r.passed
@@ -97,19 +122,43 @@ class TestValidators:
         assert not r.passed
 
     def test_v6_pin_followed_by_non_action(self):
-        app, m = _compile(op_id="pay", title="Pay", kind="write", params=[
-            DraftParam(name="pin", schema={"type": "string", "x-revenant-secret": "pin",
-                       "minLength": 4, "maxLength": 6}),
-        ])
+        app, m = _compile(
+            op_id="pay",
+            title="Pay",
+            kind="write",
+            params=[
+                DraftParam(
+                    name="pin",
+                    json_schema={
+                        "type": "string",
+                        "x-revenant-secret": "pin",
+                        "minLength": 4,
+                        "maxLength": 6,
+                    },
+                ),
+            ],
+        )
         m.states["pay__pin"].transitions["*"] = "pay__result"
         r = validate_pin(m)
         assert not r.passed
 
     def test_v6_pin_with_echo_slot(self):
-        app, m = _compile(op_id="pay", title="Pay", kind="write", params=[
-            DraftParam(name="pin", schema={"type": "string", "x-revenant-secret": "pin",
-                       "minLength": 4, "maxLength": 6}),
-        ])
+        app, m = _compile(
+            op_id="pay",
+            title="Pay",
+            kind="write",
+            params=[
+                DraftParam(
+                    name="pin",
+                    json_schema={
+                        "type": "string",
+                        "x-revenant-secret": "pin",
+                        "minLength": 4,
+                        "maxLength": 6,
+                    },
+                ),
+            ],
+        )
         m.states["pay__pin"].slots = [Slot(name="pin", max_len=6)]
         r = validate_pin(m)
         assert not r.passed
@@ -129,9 +178,13 @@ class TestMutationSelfTest:
     """Each mutation flagged by exactly the intended validator (task 11)."""
 
     def _valid(self):
-        return _compile(op_id="get_price", title="Get Price", params=[
-            DraftParam(name="item", schema={"type": "string", "enum": ["a", "b"]}),
-        ])
+        return _compile(
+            op_id="get_price",
+            title="Get Price",
+            params=[
+                DraftParam(name="item", json_schema={"type": "string", "enum": ["a", "b"]}),
+            ],
+        )
 
     def test_delete_edge(self):
         app, m = self._valid()
@@ -157,10 +210,22 @@ class TestMutationSelfTest:
         assert not r.passed
 
     def test_pin_echo_slot(self):
-        app, m = _compile(op_id="pay", title="Pay", kind="write", params=[
-            DraftParam(name="pin", schema={"type": "string", "x-revenant-secret": "pin",
-                       "minLength": 4, "maxLength": 6}),
-        ])
+        app, m = _compile(
+            op_id="pay",
+            title="Pay",
+            kind="write",
+            params=[
+                DraftParam(
+                    name="pin",
+                    json_schema={
+                        "type": "string",
+                        "x-revenant-secret": "pin",
+                        "minLength": 4,
+                        "maxLength": 6,
+                    },
+                ),
+            ],
+        )
         m.states["pay__pin"].slots = [Slot(name="pin", max_len=6)]
         r = validate_pin(m)
         assert not r.passed
@@ -180,9 +245,15 @@ class TestMutationSelfTest:
 
 class TestBundleHash:
     def test_deterministic_hash(self):
-        drafts = [DraftOperation(id="get_price", title="Get Price", params=[
-            DraftParam(name="item", schema={"type": "string", "enum": ["a", "b"]}),
-        ])]
+        drafts = [
+            DraftOperation(
+                id="get_price",
+                title="Get Price",
+                params=[
+                    DraftParam(name="item", json_schema={"type": "string", "enum": ["a", "b"]}),
+                ],
+            )
+        ]
         app1, _ = classify_app(drafts)
         app2, _ = classify_app(drafts)
         b1 = compile_app(app1)
@@ -202,12 +273,20 @@ class TestBundleHash:
 
     def test_refused_ops_absent_from_bundle(self):
         drafts = [
-            DraftOperation(id="good", title="Good", params=[
-                DraftParam(name="x", schema={"type": "boolean"}),
-            ]),
-            DraftOperation(id="bad", title="Bad", params=[
-                DraftParam(name="t", schema={"type": "string"}),
-            ]),
+            DraftOperation(
+                id="good",
+                title="Good",
+                params=[
+                    DraftParam(name="x", json_schema={"type": "boolean"}),
+                ],
+            ),
+            DraftOperation(
+                id="bad",
+                title="Bad",
+                params=[
+                    DraftParam(name="t", json_schema={"type": "string"}),
+                ],
+            ),
         ]
         app, report = classify_app(drafts)
         bundle = compile_app(app, refused_op_ids={"bad"})

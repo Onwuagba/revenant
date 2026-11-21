@@ -21,7 +21,7 @@ from ..compiler.planner import TERMINAL_KINDS
 from .actions import ActionOutcome, ActionResult, call_upstream
 from .machine import CON_PREFIX, END_PREFIX, Trace, get_screen, replay_full
 from .redact import setup_redaction
-from .sms import SmsOutbox, build_sms_body, count_segments
+from .sms import OutboxLike, build_sms_body
 from .store import MsisdnCodec, OptionCache, PinGuard, SessionStore
 
 logger = logging.getLogger("revenant.runtime")
@@ -52,7 +52,7 @@ class UssdService:
     engine: sa.Engine
     codec: MsisdnCodec = field(default_factory=MsisdnCodec)
     http_client: Any = None
-    outbox: SmsOutbox | None = None  # in-memory fallback; DB outbox via SqlSmsOutbox
+    outbox: OutboxLike | None = None  # in-memory fallback; DB outbox via SqlSmsOutbox
 
     def __post_init__(self) -> None:
         self.sessions = SessionStore(self.engine)
@@ -72,7 +72,7 @@ class UssdService:
         cached = self.sessions.get(session_id)
         if cached and cached["deployment_id"] == dep.id and cached["step_index"] == step_index:
             if cached["msisdn_hmac"] == mh:
-                return cached["last_response"]  # duplicate callback: no re-execution
+                return str(cached["last_response"])  # duplicate callback: no re-execution
 
         trace = replay_full(dep.bundle, text)
         machine = dep.bundle["machine"]
@@ -92,15 +92,22 @@ class UssdService:
             else:
                 response, kind = CON_PREFIX + get_screen(machine, trace.state_id), "screen"
 
-        self.sessions.put(session_id=session_id, deployment_id=dep.id, msisdn_hmac=mh,
-                          state_id=trace.state_id, step_index=step_index, last_response=response)
+        self.sessions.put(
+            session_id=session_id,
+            deployment_id=dep.id,
+            msisdn_hmac=mh,
+            state_id=trace.state_id,
+            step_index=step_index,
+            last_response=response,
+        )
         self.sessions.event(session_id, step_index, trace.state_id, kind)
         # `trace` (params, pin) goes out of scope here; nothing above stored it.
         return response
 
     # -- actions --------------------------------------------------------
-    async def _run_action(self, dep: Deployment, session_id: str, msisdn: str, mh: str,
-                          trace: Trace) -> tuple[str, str]:
+    async def _run_action(
+        self, dep: Deployment, session_id: str, msisdn: str, mh: str, trace: Trace
+    ) -> tuple[str, str]:
         op = next((o for o in dep.bundle["ir"]["operations"] if o["id"] == trace.op_id), None)
         if op is None:
             return END_PREFIX + ERROR_MSG, "error"
@@ -120,14 +127,21 @@ class UssdService:
 
         cache_key = ""
         if method == "GET" and not has_pin:
-            cache_key = hashlib.sha256(f"{dep.id}:{url}:{sorted(params.items())}".encode()).hexdigest()
+            cache_key = hashlib.sha256(
+                f"{dep.id}:{url}:{sorted(params.items())}".encode()
+            ).hexdigest()
             hit = self.options.get(cache_key)
             if hit is not None:
-                return self._render_result(dep, op, ActionResult(ActionOutcome.OK, json.loads(hit)),
-                                           msisdn, mh)
+                return self._render_result(
+                    dep, op, ActionResult(ActionOutcome.OK, json.loads(hit)), msisdn, mh
+                )
 
         result = await call_upstream(
-            url, method, params, session_id=session_id, state_id=trace.state_id,
+            url,
+            method,
+            params,
+            session_id=session_id,
+            state_id=trace.state_id,
             http_client=dep.http_client or self.http_client,
         )
         params.clear()
@@ -142,8 +156,9 @@ class UssdService:
             self.options.put(cache_key, json.dumps(result.data))
         return self._render_result(dep, op, result, msisdn, mh)
 
-    async def _run_mcp(self, dep: Deployment, op: dict[str, Any], params: dict[str, Any],
-                       msisdn: str, mh: str) -> tuple[str, str]:
+    async def _run_mcp(
+        self, dep: Deployment, op: dict[str, Any], params: dict[str, Any], msisdn: str, mh: str
+    ) -> tuple[str, str]:
         if dep.mcp_call is None:
             return END_PREFIX + ERROR_MSG, "upstream_error"
         try:
@@ -156,8 +171,9 @@ class UssdService:
         data = raw if isinstance(raw, (dict, list)) else {"text": str(raw)}
         return self._render_result(dep, op, ActionResult(ActionOutcome.OK, data), msisdn, mh)
 
-    def _render_result(self, dep: Deployment, op: dict[str, Any], result: ActionResult,
-                       msisdn: str, mh: str) -> tuple[str, str]:
+    def _render_result(
+        self, dep: Deployment, op: dict[str, Any], result: ActionResult, msisdn: str, mh: str
+    ) -> tuple[str, str]:
         if result.outcome == ActionOutcome.ERROR:
             return END_PREFIX + ERROR_MSG, "upstream_error"
         if result.outcome in (ActionOutcome.SLOW, ActionOutcome.ASYNC):
@@ -179,8 +195,10 @@ class UssdService:
         items = data if isinstance(data, list) else [data if isinstance(data, dict) else {}]
         lines = []
         for item in items:
-            row = [f"{f['label']}: {sanitise_slot(_dig(item, f['path']), f.get('max_len', 40))}"
-                   for f in fields]
+            row = [
+                f"{f['label']}: {sanitise_slot(_dig(item, f['path']), f.get('max_len', 40))}"
+                for f in fields
+            ]
             lines.append("\n".join(row))
         screen = END_PREFIX + "\n".join(lines)
         if len(screen) <= SCREEN_BUDGET and result.outcome != ActionOutcome.LONG:
@@ -192,7 +210,8 @@ class UssdService:
 
     def _queue_sms(self, dep: Deployment, msisdn: str, mh: str, body: str) -> None:
         body = build_sms_body({"template": body.replace("{", "(").replace("}", ")")}, {})
-        self.outbox.enqueue(msisdn, body, dep.id)  # type: ignore[union-attr]
+        assert self.outbox is not None  # set in __post_init__
+        self.outbox.enqueue(msisdn, body, dep.id)
 
 
 def _dig(item: Any, path: str) -> str:

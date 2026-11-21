@@ -14,8 +14,6 @@ from .gsm7 import is_gsm7
 from .ir import (
     App,
     DraftOperation,
-    DraftParam,
-    OpKind,
     Operation,
     OptionsFrom,
     Param,
@@ -24,7 +22,6 @@ from .ir import (
     Result,
     ResultField,
     ResultShape,
-    Risk,
     SecretType,
 )
 from .refusals import Refusal, RefusalCode
@@ -152,7 +149,8 @@ def _classify(
     # PIN must be checked early (it's a string with a secret annotation).
     if x_secret == "pin":
         return _make_param(
-            name, ParamType.PIN,
+            name,
+            ParamType.PIN,
             secret=SecretType.PIN,
             constraints=ParamConstraints(
                 min=schema.get("minLength"),
@@ -190,7 +188,8 @@ def _classify(
         if abs(max_val) >= 10**MAX_NUMBER_DIGITS:
             return Refusal.make(op_id, path, RefusalCode.R_UNBOUNDED_NUMBER)
         return _make_param(
-            name, ParamType.NUMERIC,
+            name,
+            ParamType.NUMERIC,
             constraints=ParamConstraints(min=minimum, max=maximum),
         )
 
@@ -208,7 +207,8 @@ def _classify(
         if fmt == "date":
             if isinstance(x_date_window, int) and 1 <= x_date_window <= 7:
                 return _make_param(
-                    name, ParamType.DATE_WINDOW,
+                    name,
+                    ParamType.DATE_WINDOW,
                     constraints=ParamConstraints(window=x_date_window),
                 )
             return Refusal.make(op_id, path, RefusalCode.R_DATETIME)
@@ -226,7 +226,8 @@ def _classify(
             if not all(is_gsm7(v) for v in enum_vals):
                 return Refusal.make(op_id, path, RefusalCode.R_NON_GSM7)
             return _make_param(
-                name, ParamType.ENUM_MENU,
+                name,
+                ParamType.ENUM_MENU,
                 constraints=ParamConstraints(enum=enum_vals),
             )
 
@@ -235,7 +236,8 @@ def _classify(
         max_len = schema.get("maxLength")
         if pattern is not None:
             return _make_param(
-                name, ParamType.TOKEN,
+                name,
+                ParamType.TOKEN,
                 constraints=ParamConstraints(pattern=str(pattern)),
             )
         if max_len is not None:
@@ -245,7 +247,8 @@ def _classify(
                 ml = 0
             if ml <= 20:
                 return _make_param(
-                    name, ParamType.TOKEN,
+                    name,
+                    ParamType.TOKEN,
                     constraints=ParamConstraints(max_len=ml),
                 )
             # maxLength > 20 -> too long for a token
@@ -256,8 +259,7 @@ def _classify(
 
     # Object ---------------------------------------------------------------
     if type_ == "object" or "properties" in schema:
-        return _classify_object(schema, op_id=op_id, path=path, name=name,
-                                 depth=depth, seen=seen)
+        return _classify_object(schema, op_id=op_id, path=path, name=name, depth=depth, seen=seen)
 
     # Array ----------------------------------------------------------------
     if type_ == "array":
@@ -321,7 +323,8 @@ def _classify_object(
         sub_params.append(result)
 
     return _make_param(
-        name, ParamType.FLATTENED,
+        name,
+        ParamType.FLATTENED,
         required=True,
         params=sub_params,
     )
@@ -340,10 +343,7 @@ def _classify_result(result_schema: dict[str, Any] | None) -> Result:
             items = result_schema.get("items", {})
             if isinstance(items, dict) and items.get("type") == "object":
                 props = items.get("properties", {})
-                fields = [
-                    ResultField(path=k, label=k)
-                    for k in props
-                ]
+                fields = [ResultField(path=k, label=k) for k in props]
                 return Result(shape=ResultShape.LIST, fields=fields)
             return Result(shape=ResultShape.LIST)
         if type_ == "object":
@@ -376,7 +376,7 @@ def classify_operation(
 
     for dp in draft.params:
         result = classify_schema(
-            dp.schema,
+            dp.json_schema,
             op_id=draft.id,
             path=f"#/params/{dp.name}",
             name=dp.name,
@@ -398,23 +398,24 @@ def classify_operation(
         refusals.append(
             Refusal.make(
                 draft.id,
-                f"#/params",
+                "#/params",
                 RefusalCode.R_TOO_MANY_PARAMS,
-                message=f"{required_count} required params exceed the max of {MAX_REQUIRED_PARAMS}.",
+                message=f"{required_count} required params exceed the max of "
+                f"{MAX_REQUIRED_PARAMS}.",
             )
         )
 
     if refusals:
         return refusals
 
-    result = _classify_result(draft.result_schema)
+    op_result = _classify_result(draft.result_schema)
     return Operation(
         id=draft.id,
         source_ref=draft.source_ref,
         kind=draft.kind,
         title=draft.title,
         params=leaf_params,
-        result=result,
+        result=op_result,
         async_=draft.async_,
         risk=draft.risk,
     )
@@ -433,6 +434,7 @@ class RefusalReport(TypedDict):
     compiled_count: int
     refused_count: int
     per_code: dict[str, int]
+    generated_op_ids: list[str]
 
 
 def classify_app(
@@ -459,6 +461,7 @@ def classify_app(
 
     app = App(slug=slug, title=title, operations=operations)
     report = _build_report(operations, all_refusals)
+    report["generated_op_ids"] = sorted(d.id for d in drafts if d.id_generated)
     return app, report
 
 
@@ -488,4 +491,5 @@ def _build_report(
         compiled_count=len(operations),
         refused_count=len(refused_op_ids),
         per_code=per_code,
+        generated_op_ids=[],
     )

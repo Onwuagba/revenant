@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 from enum import Enum
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -198,10 +198,10 @@ class App(BaseModel):
 class DraftParam(BaseModel):
     """A parameter before classification (from OpenAPI/MCP ingest)."""
 
-    model_config = ConfigDict(extra="forbid", protected_namespaces=())
+    model_config = ConfigDict(extra="forbid")
 
     name: str
-    schema: dict[str, Any] = Field(default_factory=dict)
+    json_schema: dict[str, Any] = Field(default_factory=dict)
     required: bool = True
     in_location: str = ""  # path, query, header, body
 
@@ -219,6 +219,8 @@ class DraftOperation(BaseModel):
     result_schema: dict[str, Any] | None = None
     risk: Risk = Risk.LOW
     async_: bool = False
+    #: True when the id was generated from method+path (spec had no operationId).
+    id_generated: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -229,12 +231,8 @@ def _prepare_for_canonical(obj: Any) -> Any:
     if isinstance(obj, BaseModel):
         data = obj.model_dump(mode="json", by_alias=True)
         if isinstance(obj, App):
-            data["operations"] = [
-                _prepare_for_canonical(op) for op in obj.sorted_operations()
-            ]
-            data["flows"] = [
-                _prepare_for_canonical(fl) for fl in obj.sorted_flows()
-            ]
+            data["operations"] = [_prepare_for_canonical(op) for op in obj.sorted_operations()]
+            data["flows"] = [_prepare_for_canonical(fl) for fl in obj.sorted_flows()]
         else:
             data = _prepare_for_canonical(data)
         return data

@@ -11,16 +11,22 @@ import abc
 import logging
 import os
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
+from typing import Any, Protocol
 from uuid import uuid4
 
-from ..compiler.gsm7 import is_gsm7, septet_count, sanitise_slot, transliterate
+from ..compiler.gsm7 import sanitise_slot, septet_count, transliterate
 
 logger = logging.getLogger("revenant.runtime.sms")
 
 SINGLE_SEGMENT = 160
 CONCAT_SEGMENT = 153
+
+
+class OutboxLike(Protocol):
+    """What the service needs from an outbox (in-memory ``SmsOutbox`` or ``SqlSmsOutbox``)."""
+
+    def enqueue(self, msisdn: str, body: str, deployment_id: str = "") -> str: ...
 
 
 class SmsProvider(abc.ABC):
@@ -75,6 +81,7 @@ class EmulatorSms(SmsProvider):
 @dataclass
 class SmsOutboxEntry:
     """An SMS queued for sending."""
+
     id: str = field(default_factory=lambda: str(uuid4()))
     deployment_id: str = ""
     msisdn: str = ""
@@ -82,9 +89,9 @@ class SmsOutboxEntry:
     segments: int = 1
     status: str = "pending"
     attempts: int = 0
-    next_attempt_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    next_attempt_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     provider_ref: str = ""
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 def build_sms_body(result: dict[str, Any], values: dict[str, str]) -> str:

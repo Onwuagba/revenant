@@ -9,9 +9,9 @@ Source: ``architecture/IR_AND_TYPE_SUBSET.md`` section 6; carrier rules.
 
 from __future__ import annotations
 
-from .gsm7 import is_gsm7, sanitise_slot, septet_count, transliterate
-from .ir import App, Operation, Param, ParamType, Result, ResultShape
-from .planner import Machine, Slot, State, StateKind, TERMINAL_KINDS
+from .gsm7 import is_gsm7
+from .ir import App, Operation, Param
+from .planner import Machine, Slot, State, StateKind
 
 PREFIX_LEN = 4  # "CON " or "END "
 
@@ -24,7 +24,7 @@ def render(machine: Machine, app: App) -> Machine:
     max_chars = machine.carrier_profile.max_chars
     ops_by_id = {op.id: op for op in app.operations}
 
-    for state_id, state in machine.states.items():
+    for state in machine.states.values():
         if state.kind == StateKind.MENU:
             _render_menu(state, machine, app, ops_by_id, max_chars)
         elif state.kind == StateKind.INPUT:
@@ -53,8 +53,9 @@ def _check_gsm7(state: State) -> bool:
     return is_gsm7(state.template)
 
 
-def _render_menu(state: State, machine: Machine, app: App,
-                 ops_by_id: dict[str, Operation], max_chars: int) -> None:
+def _render_menu(
+    state: State, machine: Machine, app: App, ops_by_id: dict[str, Operation], max_chars: int
+) -> None:
     """Render a menu state (root or operation selection)."""
     if state.id == machine.root or state.id.startswith("root"):
         # Root menu: list operations by their titles
@@ -83,8 +84,9 @@ def _render_menu(state: State, machine: Machine, app: App,
         label = param.label if param else state.param_name
         lines = [f"Select {label}"]
         from .planner import menu_label
+
         for i, val in enumerate(state.options):
-            lines.append(f"{i+1} {menu_label(val)}")
+            lines.append(f"{i + 1} {menu_label(val)}")
         if "0" in state.transitions:
             lines.append("0 Back")
         if "00" in state.transitions:
@@ -96,8 +98,9 @@ def _render_menu(state: State, machine: Machine, app: App,
     _compute_worst_case(state, max_chars)
 
 
-def _render_input(state: State, machine: Machine,
-                  ops_by_id: dict[str, Operation], max_chars: int) -> None:
+def _render_input(
+    state: State, machine: Machine, ops_by_id: dict[str, Operation], max_chars: int
+) -> None:
     """Render an input prompt state."""
     op = ops_by_id.get(state.op_id)
     param = _find_param(op, state.param_name) if op else None
@@ -118,8 +121,9 @@ def _render_input(state: State, machine: Machine,
     _compute_worst_case(state, max_chars)
 
 
-def _render_confirm(state: State, machine: Machine,
-                    ops_by_id: dict[str, Operation], max_chars: int) -> None:
+def _render_confirm(
+    state: State, machine: Machine, ops_by_id: dict[str, Operation], max_chars: int
+) -> None:
     """Render a confirmation screen."""
     op = ops_by_id.get(state.op_id)
     title = op.title if op else "Confirm"
@@ -145,8 +149,9 @@ def _render_pin(state: State, max_chars: int) -> None:
     _compute_worst_case(state, max_chars)
 
 
-def _render_result(state: State, machine: Machine,
-                   ops_by_id: dict[str, Operation], max_chars: int) -> None:
+def _render_result(
+    state: State, machine: Machine, ops_by_id: dict[str, Operation], max_chars: int
+) -> None:
     """Render a result screen. Converts to SMS_END if it doesn't fit."""
     op = ops_by_id.get(state.op_id)
     result = op.result if op else None
@@ -165,7 +170,7 @@ def _render_result(state: State, machine: Machine,
     state.template = template
     # Create slots from result fields
     slots = []
-    for f in (result.fields if result else []):
+    for f in result.fields if result else []:
         slots.append(Slot(name=f.path, max_len=f.max_len))
     state.slots = slots
 

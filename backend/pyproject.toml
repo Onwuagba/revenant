@@ -25,6 +25,8 @@ dev = [
     "hypothesis>=6.100",
     "ruff>=0.6",
     "mypy>=1.10",
+    "types-PyYAML>=6.0",
+    "types-jsonschema>=4.20",
     "openapi-spec-validator>=0.7",
 ]
 mcp = [
@@ -58,8 +60,21 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B"]
+ignore = [
+    # (str, Enum) is kept on purpose: StrEnum changes str()/format() output of codes in reports.
+    "UP042",
+]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI dependency injection and Hypothesis strategies are evaluated at definition time by design.
+extend-immutable-calls = [
+    "fastapi.Depends", "fastapi.Query", "fastapi.Header", "fastapi.Cookie", "fastapi.Form",
+    "hypothesis.strategies.integers",
+]
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
+plugins = ["pydantic.mypy"]
+mypy_path = ["src"]
 packages = ["revenant.compiler", "revenant.runtime"]

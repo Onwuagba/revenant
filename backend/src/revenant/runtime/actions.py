@@ -11,7 +11,6 @@ import logging
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
-from uuid import uuid4
 
 logger = logging.getLogger("revenant.runtime.actions")
 
@@ -31,7 +30,7 @@ class ActionOutcome(str, Enum):
 @dataclass
 class ActionResult:
     outcome: ActionOutcome
-    data: dict[str, Any] | None = None
+    data: dict[str, Any] | list[Any] | None = None
     error: str = ""
     sms_body: str = ""
 

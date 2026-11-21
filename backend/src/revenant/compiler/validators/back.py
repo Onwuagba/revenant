@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ..planner import Machine, StateKind, TERMINAL_KINDS
+from ..planner import TERMINAL_KINDS, Machine, StateKind
 from . import ValidationResult, Violation
 
 
@@ -19,21 +19,31 @@ def validate_back(machine: Machine) -> ValidationResult:
 
         # 00 must reach root
         if state.transitions.get("00") != machine.root:
-            violations.append(Violation(
-                validator="V3_back", state_id=sid,
-                message=f"State {sid}: 00 does not lead to ROOT"))
+            violations.append(
+                Violation(
+                    validator="V3_back",
+                    state_id=sid,
+                    message=f"State {sid}: 00 does not lead to ROOT",
+                )
+            )
 
         # 0 must lead to prev (if prev is set)
         if state.prev:
             if state.transitions.get("0") != state.prev:
-                violations.append(Violation(
-                    validator="V3_back", state_id=sid,
-                    message=f"State {sid}: 0 does not lead to previous state {state.prev}"))
+                violations.append(
+                    Violation(
+                        validator="V3_back",
+                        state_id=sid,
+                        message=f"State {sid}: 0 does not lead to previous state {state.prev}",
+                    )
+                )
 
         # Back must not loop to self
         if state.transitions.get("0") == sid:
-            violations.append(Violation(
-                validator="V3_back", state_id=sid,
-                message=f"State {sid}: 0 loops to self"))
+            violations.append(
+                Violation(
+                    validator="V3_back", state_id=sid, message=f"State {sid}: 0 loops to self"
+                )
+            )
 
     return ValidationResult("V3_back", len(violations) == 0, violations)

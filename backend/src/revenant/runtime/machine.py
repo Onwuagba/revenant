@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Any
 
-from ..compiler.planner import StateKind, TERMINAL_KINDS
+from ..compiler.planner import TERMINAL_KINDS
 
 #: Prefix lengths
 CON_PREFIX = "CON "
@@ -72,7 +72,7 @@ def get_screen(machine_data: dict[str, Any], state_id: str) -> str:
     state = states.get(state_id)
     if state is None:
         return "Session ended. Try again later."
-    return state.get("template", "")
+    return str(state.get("template", ""))
 
 
 def is_terminal(machine_data: dict[str, Any], state_id: str) -> bool:
@@ -140,7 +140,7 @@ def _menu_value(state: dict[str, Any], key: str, today: date | None) -> str:
     val = opts[int(key) - 1]
     if val.startswith("+") and val[1:].isdigit():
         return ((today or date.today()) + timedelta(days=int(val[1:]))).isoformat()
-    return val
+    return str(val)
 
 
 @dataclass
@@ -163,7 +163,7 @@ def _param_spec(bundle: dict[str, Any], op_id: str, name: str) -> dict[str, Any]
         if op.get("id") == op_id:
             for prm in op.get("params", []):
                 if prm.get("name") == name:
-                    return prm
+                    return dict(prm)
     return {}
 
 
@@ -196,8 +196,10 @@ def replay_full(bundle: dict[str, Any], text: str, today: date | None = None) ->
         if segment == "":
             continue
         state = states.get(trace.state_id)
-        if state is None or state["kind"] == "ACTION" or state["kind"] in (
-            k.value for k in TERMINAL_KINDS
+        if (
+            state is None
+            or state["kind"] == "ACTION"
+            or state["kind"] in (k.value for k in TERMINAL_KINDS)
         ):
             break
         kind = state["kind"]
@@ -223,8 +225,12 @@ def replay_full(bundle: dict[str, Any], text: str, today: date | None = None) ->
                 trace.pin = segment
             else:
                 trace.params[state["param_name"]] = segment
-        elif (kind == "MENU" and state.get("param_name") and segment in transitions
-              and segment not in ("0", "00")):
+        elif (
+            kind == "MENU"
+            and state.get("param_name")
+            and segment in transitions
+            and segment not in ("0", "00")
+        ):
             trace.params[state["param_name"]] = _menu_value(state, segment, today)
         trace.state_id = next_id
         trace.op_id = states[next_id].get("op_id", "") or trace.op_id

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import deque
 
-from ..planner import Machine, TERMINAL_KINDS
+from ..planner import TERMINAL_KINDS, Machine
 from . import ValidationResult, Violation
 
 
@@ -35,10 +35,12 @@ def validate_steps(machine: Machine) -> ValidationResult:
             longest = max(longest, dist[sid])
 
     if longest > max_steps:
-        violations.append(Violation(
-            validator="V4_steps",
-            message=f"Longest path to terminal is {longest}, exceeds max_steps {max_steps}",
-            measured=longest,
-        ))
+        violations.append(
+            Violation(
+                validator="V4_steps",
+                message=f"Longest path to terminal is {longest}, exceeds max_steps {max_steps}",
+                measured=longest,
+            )
+        )
 
     return ValidationResult("V4_steps", len(violations) == 0, violations)

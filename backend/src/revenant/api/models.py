@@ -5,7 +5,8 @@ import sqlalchemy as sa
 from ..runtime.store import metadata
 
 users = sa.Table(
-    "users", metadata,
+    "users",
+    metadata,
     sa.Column("id", sa.String(36), primary_key=True),
     sa.Column("email", sa.String(254), nullable=False, unique=True),
     sa.Column("pw_hash", sa.String(256), nullable=False),
@@ -13,7 +14,8 @@ users = sa.Table(
     sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
 )
 sessions_web = sa.Table(
-    "sessions_web", metadata,
+    "sessions_web",
+    metadata,
     sa.Column("id", sa.String(36), primary_key=True),
     sa.Column("user_id", sa.String(36), nullable=False),
     sa.Column("token_hash", sa.String(64), nullable=False, unique=True),
@@ -21,7 +23,8 @@ sessions_web = sa.Table(
     sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
 )
 projects = sa.Table(
-    "projects", metadata,
+    "projects",
+    metadata,
     sa.Column("id", sa.String(36), primary_key=True),
     sa.Column("owner_id", sa.String(36), nullable=True),
     sa.Column("slug", sa.String(64), nullable=False, unique=True),
@@ -30,7 +33,8 @@ projects = sa.Table(
     sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
 )
 sources = sa.Table(
-    "sources", metadata,
+    "sources",
+    metadata,
     sa.Column("id", sa.String(36), primary_key=True),
     sa.Column("project_id", sa.String(36), nullable=False),
     sa.Column("kind", sa.String(16), nullable=False),  # openapi | mcp
@@ -40,7 +44,8 @@ sources = sa.Table(
     sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
 )
 compile_runs = sa.Table(
-    "compile_runs", metadata,
+    "compile_runs",
+    metadata,
     sa.Column("id", sa.String(36), primary_key=True),
     sa.Column("project_id", sa.String(36), nullable=False),
     sa.Column("source_id", sa.String(36), nullable=False),
@@ -55,7 +60,8 @@ compile_runs = sa.Table(
     sa.Column("finished_at", sa.DateTime(timezone=True), nullable=True),
 )
 refusals = sa.Table(
-    "refusals", metadata,
+    "refusals",
+    metadata,
     sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
     sa.Column("run_id", sa.String(36), nullable=False),
     sa.Column("op_id", sa.String(128), nullable=False),
@@ -64,7 +70,8 @@ refusals = sa.Table(
     sa.Column("message", sa.Text, nullable=False),
 )
 bundles = sa.Table(
-    "bundles", metadata,
+    "bundles",
+    metadata,
     sa.Column("id", sa.String(36), primary_key=True),
     sa.Column("project_id", sa.String(36), nullable=False),
     sa.Column("run_id", sa.String(36), nullable=False),
@@ -76,7 +83,8 @@ bundles = sa.Table(
     sa.UniqueConstraint("project_id", "bundle_hash"),
 )
 deployments = sa.Table(
-    "deployments", metadata,
+    "deployments",
+    metadata,
     sa.Column("id", sa.String(36), primary_key=True),
     sa.Column("bundle_id", sa.String(36), nullable=False),
     sa.Column("slug", sa.String(64), nullable=False),
@@ -88,10 +96,20 @@ deployments = sa.Table(
     sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
 )
 upstream_credentials = sa.Table(
-    "upstream_credentials", metadata,
+    "upstream_credentials",
+    metadata,
     sa.Column("project_id", sa.String(36), primary_key=True),
     sa.Column("ciphertext", sa.Text, nullable=False),  # AES-GCM; write-only via API
 )
 
-PLATFORM_TABLES = [users, sessions_web, projects, sources, compile_runs, refusals, bundles,
-                   deployments, upstream_credentials]
+PLATFORM_TABLES = [
+    users,
+    sessions_web,
+    projects,
+    sources,
+    compile_runs,
+    refusals,
+    bundles,
+    deployments,
+    upstream_credentials,
+]

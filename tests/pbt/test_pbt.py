@@ -8,15 +8,14 @@ from __future__ import annotations
 
 import pytest
 from hypothesis import given, settings
-
 from revenant.compiler.ir import ParamType
 from revenant.compiler.refusals import RefusalCode
-from revenant.compiler.subset import classify_schema, classify_app
+from revenant.compiler.subset import classify_app, classify_schema
 
 from .strategies import (
     st_any_schema,
-    st_deep_nested_schema,
     st_app,
+    st_deep_nested_schema,
 )
 
 
@@ -55,9 +54,15 @@ class TestP7Totality:
         assert hasattr(result, "code")
 
     def test_malformed_schema_does_not_raise(self):
-        for bad in [None, True, False, [], {"type": "unknown"},
-                     {"type": "string", "enum": "not_a_list"},
-                     {"$ref": 42}]:
+        for bad in [
+            None,
+            True,
+            False,
+            [],
+            {"type": "unknown"},
+            {"type": "string", "enum": "not_a_list"},
+            {"$ref": 42},
+        ]:
             result = classify_schema(bad, op_id="pbt", path="#/test", name="test")
             assert hasattr(result, "type") or hasattr(result, "code")
 
@@ -94,12 +99,16 @@ class TestP13RefusalSoundness:
 
         drafts = [
             DraftOperation(
-                id="good_op", title="Good Op", kind="read",
-                params=[DraftParam(name="flag", schema={"type": "boolean"})],
+                id="good_op",
+                title="Good Op",
+                kind="read",
+                params=[DraftParam(name="flag", json_schema={"type": "boolean"})],
             ),
             DraftOperation(
-                id="bad_op", title="Bad Op", kind="read",
-                params=[DraftParam(name="text", schema={"type": "string"})],
+                id="bad_op",
+                title="Bad Op",
+                kind="read",
+                params=[DraftParam(name="text", json_schema={"type": "string"})],
             ),
         ]
         app, report = classify_app(drafts)

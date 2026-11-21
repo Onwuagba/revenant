@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from ..planner import Machine, State, StateKind, TERMINAL_KINDS
+from ..planner import Machine
 
 
 @dataclass
@@ -37,17 +37,18 @@ class ValidationResult:
         }
 
 
-def run_all(machine: Machine, ir_ops: list | None = None,
-            refused_op_ids: set[str] | None = None) -> list[ValidationResult]:
+def run_all(
+    machine: Machine, ir_ops: list[Any] | None = None, refused_op_ids: set[str] | None = None
+) -> list[ValidationResult]:
     """Run all validators and return every result (never stop at first failure)."""
-    from .reachability import validate_reachability
-    from .exits import validate_exits
     from .back import validate_back
-    from .steps import validate_steps
+    from .exits import validate_exits
     from .length import validate_length
     from .pin import validate_pin
-    from .sms import validate_sms
+    from .reachability import validate_reachability
     from .refusal_soundness import validate_refusal_soundness
+    from .sms import validate_sms
+    from .steps import validate_steps
 
     results = [
         validate_reachability(machine),

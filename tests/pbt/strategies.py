@@ -7,7 +7,6 @@ huge depth, and empty schemas. Used by property tests P7, P13, and later P1-P6.
 from __future__ import annotations
 
 from hypothesis import strategies as st
-
 from revenant.compiler.ir import DraftOperation, DraftParam
 
 # ---------------------------------------------------------------------------
@@ -44,8 +43,7 @@ st_token_maxlen_schema = st.builds(
 )
 
 st_pin_schema = st.builds(
-    lambda mn, mx: {"type": "string", "x-revenant-secret": "pin",
-                    "minLength": mn, "maxLength": mx},
+    lambda mn, mx: {"type": "string", "x-revenant-secret": "pin", "minLength": mn, "maxLength": mx},
     st.just(4),
     st.just(6),
 )
@@ -58,39 +56,49 @@ st_date_window_schema = st.builds(
 st_phone_schema = st.just({"type": "string", "format": "phone"})
 
 st_options_from_schema = st.builds(
-    lambda op_id: {"type": "string", "x-revenant-options-from": {
-        "op_id": op_id, "value_path": "id", "label_path": "name"}},
+    lambda op_id: {
+        "type": "string",
+        "x-revenant-options-from": {"op_id": op_id, "value_path": "id", "label_path": "name"},
+    },
     st.text(alphabet="abcdefghijklmnopqrstuvwxyz_", min_size=1, max_size=10),
 )
 
 # Out-of-subset schemas
 st_free_text_schema = st.just({"type": "string"})
 
-st_unbounded_number_schema = st.sampled_from([
-    {"type": "integer"},
-    {"type": "number"},
-    {"type": "integer", "minimum": 0},
-    {"type": "number", "maximum": 100},
-])
+st_unbounded_number_schema = st.sampled_from(
+    [
+        {"type": "integer"},
+        {"type": "number"},
+        {"type": "integer", "minimum": 0},
+        {"type": "number", "maximum": 100},
+    ]
+)
 
-st_datetime_schema = st.sampled_from([
-    {"type": "string", "format": "date-time"},
-    {"type": "string", "format": "time"},
-    {"type": "string", "format": "duration"},
-    {"type": "string", "format": "date"},
-])
+st_datetime_schema = st.sampled_from(
+    [
+        {"type": "string", "format": "date-time"},
+        {"type": "string", "format": "time"},
+        {"type": "string", "format": "duration"},
+        {"type": "string", "format": "date"},
+    ]
+)
 
-st_binary_schema = st.sampled_from([
-    {"type": "string", "format": "binary"},
-    {"type": "string", "format": "byte"},
-])
+st_binary_schema = st.sampled_from(
+    [
+        {"type": "string", "format": "binary"},
+        {"type": "string", "format": "byte"},
+    ]
+)
 
-st_polymorphic_schema = st.sampled_from([
-    {"oneOf": [{"type": "string"}, {"type": "integer"}]},
-    {"anyOf": [{"type": "boolean"}, {"type": "string"}]},
-    {"allOf": [{"type": "string"}]},
-    {"type": "object", "discriminator": {"propertyName": "kind"}},
-])
+st_polymorphic_schema = st.sampled_from(
+    [
+        {"oneOf": [{"type": "string"}, {"type": "integer"}]},
+        {"anyOf": [{"type": "boolean"}, {"type": "string"}]},
+        {"allOf": [{"type": "string"}]},
+        {"type": "object", "discriminator": {"propertyName": "kind"}},
+    ]
+)
 
 st_nested_object_schema = st.builds(
     lambda inner: {
@@ -102,26 +110,32 @@ st_nested_object_schema = st.builds(
     st.text(min_size=1, max_size=5, alphabet="abcdefghijklmnopqrstuvwxyz"),
 )
 
-st_array_of_objects_schema = st.just({
-    "type": "array",
-    "items": {"type": "object", "properties": {"x": {"type": "string"}}},
-})
+st_array_of_objects_schema = st.just(
+    {
+        "type": "array",
+        "items": {"type": "object", "properties": {"x": {"type": "string"}}},
+    }
+)
 
-st_remote_ref_schema = st.sampled_from([
-    {"$ref": "https://example.com/schema.json"},
-    {"$ref": "http://internal.local/api.json"},
-])
+st_remote_ref_schema = st.sampled_from(
+    [
+        {"$ref": "https://example.com/schema.json"},
+        {"$ref": "http://internal.local/api.json"},
+    ]
+)
 
 st_local_ref_schema = st.just({"$ref": "#/components/schemas/Missing"})
 
-st_malformed_schema = st.sampled_from([
-    None,
-    True,
-    False,
-    {},
-    {"type": "unknown"},
-    {"type": "string", "enum": "not_a_list"},
-])
+st_malformed_schema = st.sampled_from(
+    [
+        None,
+        True,
+        False,
+        {},
+        {"type": "unknown"},
+        {"type": "string", "enum": "not_a_list"},
+    ]
+)
 
 # ---------------------------------------------------------------------------
 # Combinations
@@ -196,14 +210,20 @@ def st_draft_param(draw):
     # DraftParam.schema must be a dict; filter out non-dict malformed schemas
     schema = draw(st_any_schema.filter(lambda s: isinstance(s, dict)))
     required = draw(st.booleans())
-    return DraftParam(name=name, schema=schema, required=required)
+    return DraftParam(name=name, json_schema=schema, required=required)
 
 
 @st.composite
 def st_draft_operation(draw, op_id=None):
     if op_id is None:
         op_id = draw(st.text(alphabet="abcdefghijklmnopqrstuvwxyz_", min_size=1, max_size=12))
-    title = draw(st.text(alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz ", min_size=1, max_size=20))
+    title = draw(
+        st.text(
+            alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz ",
+            min_size=1,
+            max_size=20,
+        )
+    )
     kind = draw(st.sampled_from(["read", "write"]))
     n_params = draw(st.integers(min_value=0, max_value=5))
     params = [draw(st_draft_param()) for _ in range(n_params)]

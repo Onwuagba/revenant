@@ -15,7 +15,7 @@ import shutil
 import subprocess
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -67,10 +67,14 @@ class AnnotatorResult:
 
     def report(self) -> dict[str, Any]:
         return {
-            "annotator": self.label(), "cached": self.cached,
-            "fallback_reason": self.fallback_reason, "kiro_model": self.kiro_model,
-            "transcript_path": self.transcript_path, "exit_code": self.exit_code,
-            "instruction_sha256": self.instruction_sha256, "duration_s": round(self.duration_s, 3),
+            "annotator": self.label(),
+            "cached": self.cached,
+            "fallback_reason": self.fallback_reason,
+            "kiro_model": self.kiro_model,
+            "transcript_path": self.transcript_path,
+            "exit_code": self.exit_code,
+            "instruction_sha256": self.instruction_sha256,
+            "duration_s": round(self.duration_s, 3),
             "repair_attempts": self.repair_attempts,
         }
 
@@ -79,18 +83,24 @@ def spec_hash(app: App) -> str:
     return hashlib.sha256(canonical_json(app.model_dump(mode="json", by_alias=True))).hexdigest()
 
 
-def build_run_dir(app: App, refusals: list[dict[str, Any]], runs_root: Path,
-                  violations: list[dict[str, Any]] | None = None) -> Path:
+def build_run_dir(
+    app: App,
+    refusals: list[dict[str, Any]],
+    runs_root: Path,
+    violations: list[dict[str, Any]] | None = None,
+) -> Path:
     run_dir = runs_root / uuid.uuid4().hex[:12]
     run_dir.mkdir(parents=True)
     (run_dir / "ir.draft.json").write_text(
-        json.dumps(app.model_dump(mode="json", by_alias=True), indent=2, sort_keys=True))
+        json.dumps(app.model_dump(mode="json", by_alias=True), indent=2, sort_keys=True)
+    )
     (run_dir / "refusals.json").write_text(json.dumps(refusals, indent=2, sort_keys=True))
     if CARRIER_RULES_SRC.exists():
         shutil.copyfile(CARRIER_RULES_SRC, run_dir / "carrier-rules.md")
     else:
         (run_dir / "carrier-rules.md").write_text(
-            "Screens: max 182 chars incl. CON/END, GSM-7 only. 0 back, 00 home. Max 7 root items.\n")
+            "Screens: max 182 chars incl. CON/END, GSM-7 only. 0 back, 00 home. Max 7 root items.\n"
+        )
     shutil.copyfile(SCHEMA_PATH, run_dir / "annotations.schema.json")
     # Make the agent (and its prompt/resources) resolvable from inside the run dir.
     if (AGENT_SRC / f"{AGENT_NAME}.json").exists():
@@ -108,9 +118,19 @@ def build_run_dir(app: App, refusals: list[dict[str, Any]], runs_root: Path,
 
 
 def _command(kiro_bin: str, instruction: str) -> list[str]:
-    return [kiro_bin, "chat", "--no-interactive", "--v3", "--agent", AGENT_NAME,
-            "--trust-tools=read,write,@revenant-validator",
-            "--output-format", "stream-json", "--require-mcp-startup", instruction]
+    return [
+        kiro_bin,
+        "chat",
+        "--no-interactive",
+        "--v3",
+        "--agent",
+        AGENT_NAME,
+        "--trust-tools=read,write,@revenant-validator",
+        "--output-format",
+        "stream-json",
+        "--require-mcp-startup",
+        instruction,
+    ]
 
 
 def _model_from_stream(text: str) -> str:
@@ -122,15 +142,19 @@ def _model_from_stream(text: str) -> str:
         if isinstance(obj, dict):
             for key in ("model", "model_id", "modelId"):
                 if isinstance(obj.get(key), str):
-                    return obj[key]
+                    return str(obj[key])
     return ""
 
 
 def _logged_in(kiro_bin: str) -> bool:
     """True if an interactive login session exists (``kiro-cli whoami`` exits 0)."""
     try:
-        r = subprocess.run([kiro_bin, "whoami"], capture_output=True, timeout=15,
-                           env={k: v for k, v in os.environ.items() if k in ("PATH", "HOME", "LANG")})
+        r = subprocess.run(
+            [kiro_bin, "whoami"],
+            capture_output=True,
+            timeout=15,
+            env={k: v for k, v in os.environ.items() if k in ("PATH", "HOME", "LANG")},
+        )
         return r.returncode == 0
     except (OSError, subprocess.TimeoutExpired):
         return False
@@ -150,13 +174,20 @@ def _run_error(stream: str) -> str:
 
 
 def _fallback(app: App, reason: str, **kw: Any) -> AnnotatorResult:
-    return AnnotatorResult("deterministic", annotate_deterministic(app),
-                           fallback_reason=reason, **kw)
+    return AnnotatorResult(
+        "deterministic", annotate_deterministic(app), fallback_reason=reason, **kw
+    )
 
 
-def run_kiro(app: App, refusals: list[dict[str, Any]], runs_root: Path, *,
-             kiro_bin: str = "kiro-cli", timeout: float = TIMEOUT_S,
-             violations: list[dict[str, Any]] | None = None) -> AnnotatorResult:
+def run_kiro(
+    app: App,
+    refusals: list[dict[str, Any]],
+    runs_root: Path,
+    *,
+    kiro_bin: str = "kiro-cli",
+    timeout: float = TIMEOUT_S,
+    violations: list[dict[str, Any]] | None = None,
+) -> AnnotatorResult:
     """One headless run (or repair run when ``violations`` is given)."""
     if shutil.which(kiro_bin) is None:
         return _fallback(app, "kiro-cli not found")
@@ -170,22 +201,38 @@ def run_kiro(app: App, refusals: list[dict[str, Any]], runs_root: Path, *,
     env = {k: v for k, v in os.environ.items() if k in ("PATH", "HOME", "KIRO_API_KEY", "LANG")}
     start = time.monotonic()
     try:
-        proc = subprocess.run(_command(kiro_bin, instruction), cwd=run_dir, env=env,
-                              capture_output=True, text=True, timeout=timeout)
+        proc = subprocess.run(
+            _command(kiro_bin, instruction),
+            cwd=run_dir,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
     except subprocess.TimeoutExpired as exc:
         out = exc.stdout.decode() if isinstance(exc.stdout, bytes) else (exc.stdout or "")
         transcript.write_text(out)
-        return _fallback(app, f"timeout after {int(timeout)}s", transcript_path=str(transcript),
-                         instruction_sha256=isha, duration_s=time.monotonic() - start)
+        return _fallback(
+            app,
+            f"timeout after {int(timeout)}s",
+            transcript_path=str(transcript),
+            instruction_sha256=isha,
+            duration_s=time.monotonic() - start,
+        )
     except OSError as exc:
-        return _fallback(app, f"could not start kiro-cli ({type(exc).__name__})",
-                         instruction_sha256=isha)
+        return _fallback(
+            app, f"could not start kiro-cli ({type(exc).__name__})", instruction_sha256=isha
+        )
     duration = time.monotonic() - start
     transcript.write_text(proc.stdout)
     (run_dir / "stderr.txt").write_text(proc.stderr[-4000:])
-    meta = dict(transcript_path=str(transcript), exit_code=proc.returncode,
-                instruction_sha256=isha, duration_s=duration,
-                kiro_model=_model_from_stream(proc.stdout))
+    meta: dict[str, Any] = dict(
+        transcript_path=str(transcript),
+        exit_code=proc.returncode,
+        instruction_sha256=isha,
+        duration_s=duration,
+        kiro_model=_model_from_stream(proc.stdout),
+    )
 
     if proc.returncode in (EXIT_MCP_FAILED, EXIT_AGENT_UNAVAILABLE):
         why = "MCP startup failed" if proc.returncode == EXIT_MCP_FAILED else "agent unavailable"

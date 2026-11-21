@@ -1,19 +1,28 @@
-"""Tests for runtime: redaction, machine step/replay, FastAPI callback, SMS (spec 4 tasks 1-4, 10-15)."""
+"""Tests for runtime: redaction, step/replay, FastAPI callback, SMS (spec 4 tasks 1-4, 10-15)."""
 
 import logging
-import pytest
 from pathlib import Path
 
+import pytest
+from revenant.compiler.emit import compile_app
 from revenant.compiler.ingest_openapi import ingest_openapi
 from revenant.compiler.subset import classify_app
-from revenant.compiler.emit import compile_app
-from revenant.runtime.redact import RedactFilter, redact_dict, redact_text, setup_redaction
-from revenant.runtime.machine import step, replay, render_response, get_screen
-from revenant.runtime.sms import (
-    SmsProvider, EmulatorSms, AfricasTalkingSms, ModemSms,
-    build_sms_body, count_segments, fits_budget, SmsOutbox,
+from revenant.runtime.actions import make_idempotency_key
+from revenant.runtime.machine import replay, step
+from revenant.runtime.redact import (
+    RedactFilter,
+    redact_dict,
+    redact_text,
 )
-from revenant.runtime.actions import make_idempotency_key, ActionOutcome
+from revenant.runtime.sms import (
+    AfricasTalkingSms,
+    EmulatorSms,
+    ModemSms,
+    SmsOutbox,
+    build_sms_body,
+    count_segments,
+    fits_budget,
+)
 
 
 def _compile_clinic():
@@ -43,12 +52,12 @@ class TestRedaction:
     def test_logging_filter(self):
         logger = logging.getLogger("test_redact")
         logger.handlers.clear()
-        handler = logging.StreamHandler()
         records = []
 
         class CaptureHandler(logging.Handler):
             def emit(self, record):
                 records.append(record.getMessage())
+
         logger.addHandler(CaptureHandler())
         logger.addFilter(RedactFilter())
         logger.warning("text=secret_data pin=1234")
@@ -112,9 +121,10 @@ class TestMachineStep:
 # ---------------------------------------------------------------------------
 class TestCallbackRoute:
     def test_root_screen(self):
-        from revenant.runtime.app import build_router, InMemoryBundleStore
-        from httpx import AsyncClient, ASGITransport
         import asyncio
+
+        from httpx import ASGITransport, AsyncClient
+        from revenant.runtime.app import InMemoryBundleStore, build_router
 
         bundle = _compile_clinic()
         store = InMemoryBundleStore()
@@ -127,16 +137,23 @@ class TestCallbackRoute:
             async with AsyncClient(transport=transport, base_url="http://test") as client:
                 resp = await client.post(
                     f"/ussd/{slug}/test-token",
-                    data={"sessionId": "s1", "serviceCode": "*384#", "phoneNumber": "+2348000000000", "text": ""},
+                    data={
+                        "sessionId": "s1",
+                        "serviceCode": "*384#",
+                        "phoneNumber": "+2348000000000",
+                        "text": "",
+                    },
                 )
                 assert resp.status_code == 200
                 assert resp.text.startswith("CON ")
+
         asyncio.run(run())
 
     def test_wrong_token_404(self):
-        from revenant.runtime.app import build_router, InMemoryBundleStore
-        from httpx import AsyncClient, ASGITransport
         import asyncio
+
+        from httpx import ASGITransport, AsyncClient
+        from revenant.runtime.app import InMemoryBundleStore, build_router
 
         bundle = _compile_clinic()
         store = InMemoryBundleStore()
@@ -152,12 +169,14 @@ class TestCallbackRoute:
                     data={"sessionId": "s1", "text": ""},
                 )
                 assert resp.status_code == 404
+
         asyncio.run(run())
 
     def test_malformed_form(self):
-        from revenant.runtime.app import build_router, InMemoryBundleStore
-        from httpx import AsyncClient, ASGITransport
         import asyncio
+
+        from httpx import ASGITransport, AsyncClient
+        from revenant.runtime.app import InMemoryBundleStore, build_router
 
         bundle = _compile_clinic()
         store = InMemoryBundleStore()
@@ -176,6 +195,7 @@ class TestCallbackRoute:
                 )
                 assert resp.status_code == 200
                 assert resp.text.startswith("CON ") or resp.text.startswith("END ")
+
         asyncio.run(run())
 
 
@@ -228,8 +248,10 @@ class TestSms:
 
     def test_build_sms_body(self):
         result = {
-            "fields": [{"path": "code", "label": "Code", "max_len": 8},
-                       {"path": "time", "label": "Time", "max_len": 20}],
+            "fields": [
+                {"path": "code", "label": "Code", "max_len": 8},
+                {"path": "time", "label": "Time", "max_len": 20},
+            ],
             "template": "Booked {code} {time}",
         }
         body = build_sms_body(result, {"code": "KX42", "time": "Sat 14:30"})
@@ -240,6 +262,7 @@ class TestSms:
         result = {"template": "Booked {code}", "fields": []}
         body = build_sms_body(result, {"code": "KX42"})
         from revenant.compiler.gsm7 import is_gsm7
+
         assert is_gsm7(body), f"SMS body not GSM-7: {body!r}"
 
 

@@ -24,6 +24,28 @@ STDIO_REGISTRY: dict[str, list[str]] = {
 }
 
 
+def tool_to_dict(tool: dict[str, Any] | Any, default_name: str = "") -> dict[str, Any]:
+    """Normalise a tool (dict or SDK model) to camelCase MCP keys.
+
+    mcp 1.x models expose ``inputSchema``; mcp 2.x exposes ``input_schema`` with the camelCase
+    alias. ``model_dump(by_alias=True)`` yields the wire names for both, so a tool is never
+    silently read as having no parameters.
+    """
+    if isinstance(tool, dict):
+        return tool
+    if hasattr(tool, "model_dump"):
+        dumped: dict[str, Any] = tool.model_dump(by_alias=True)
+        dumped.setdefault("name", default_name)
+        return dumped
+    return {
+        "name": getattr(tool, "name", default_name),
+        "description": getattr(tool, "description", ""),
+        "inputSchema": getattr(tool, "inputSchema", None),
+        "outputSchema": getattr(tool, "outputSchema", None),
+        "annotations": getattr(tool, "annotations", None),
+    }
+
+
 def map_tool_to_draft(
     tool_name: str,
     tool: dict[str, Any] | Any,
@@ -32,17 +54,7 @@ def map_tool_to_draft(
 
     Pure function — no network, no I/O. Tested in isolation.
     """
-    # Normalise to dict for uniform access
-    if isinstance(tool, dict):
-        td = tool
-    else:
-        td = {
-            "name": getattr(tool, "name", tool_name),
-            "description": getattr(tool, "description", ""),
-            "inputSchema": getattr(tool, "inputSchema", None),
-            "outputSchema": getattr(tool, "outputSchema", None),
-            "annotations": getattr(tool, "annotations", None),
-        }
+    td = tool_to_dict(tool, tool_name)
 
     name = td.get("name", tool_name)
     description = td.get("description", "") or ""
@@ -58,12 +70,14 @@ def map_tool_to_draft(
         required_list = input_schema.get("required", [])
         required_set: set[str] = set(required_list) if isinstance(required_list, list) else set()
         for prop_name, prop_schema in properties.items():
-            params.append(DraftParam(
-                name=prop_name,
-                schema=prop_schema if isinstance(prop_schema, dict) else {},
-                required=prop_name in required_set,
-                in_location="body",
-            ))
+            params.append(
+                DraftParam(
+                    name=prop_name,
+                    json_schema=prop_schema if isinstance(prop_schema, dict) else {},
+                    required=prop_name in required_set,
+                    in_location="body",
+                )
+            )
 
     # outputSchema -> result_schema (None = text shape)
     output_schema = td.get("outputSchema")
@@ -118,10 +132,14 @@ def ingest_mcp_tools(
     for tool in tools:
         name = tool.get("name", "") if isinstance(tool, dict) else getattr(tool, "name", "")
         if not name:
-            refusals.append(Refusal.make(
-                "unknown", "#/tools", RefusalCode.R_FREE_TEXT,
-                message="Tool without a name.",
-            ))
+            refusals.append(
+                Refusal.make(
+                    "unknown",
+                    "#/tools",
+                    RefusalCode.R_FREE_TEXT,
+                    message="Tool without a name.",
+                )
+            )
             continue
         draft_ops.append(map_tool_to_draft(name, tool))
 
@@ -139,26 +157,19 @@ async def ingest_mcp(
     Requirement 4.4: only streamable HTTP from users; stdio from registry.
     Requirement 3.1: URL guarded by SSRF policy.
     """
-    from mcp.client.streamable_http import streamable_http_client
     from mcp.client.session import ClientSession
+    from mcp.client.streamable_http import streamable_http_client
 
     # Guard the URL (SSRF policy)
     target = check_url(url, allow_http=allow_http)
 
-    async with streamable_http_client(target.url) as (read, write, _):
+    # mcp 1.x yields (read, write, get_session_id); mcp 2.x yields (read, write).
+    async with streamable_http_client(target.url) as streams:
+        read, write = streams[0], streams[1]
         async with ClientSession(read, write) as session:
             await session.initialize()
             result = await session.list_tools()
-            tools = [
-                {
-                    "name": t.name,
-                    "description": t.description,
-                    "inputSchema": t.inputSchema if hasattr(t, "inputSchema") else None,
-                    "outputSchema": getattr(t, "outputSchema", None),
-                    "annotations": getattr(t, "annotations", None),
-                }
-                for t in result.tools
-            ]
+            tools = [tool_to_dict(t) for t in result.tools]
             return ingest_mcp_tools(tools)
 
 

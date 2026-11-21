@@ -10,4 +10,8 @@ from pathlib import Path
 from revenant.runtime.app import build_router
 
 bundle = json.loads((Path(__file__).parent / "bundle.json").read_text())
-app = build_router(bundle, os.environ["CALLBACK_TOKEN"], upstream_base=os.environ.get("UPSTREAM_BASE", ""))
+app = build_router(
+    bundle,
+    os.environ["CALLBACK_TOKEN"],
+    upstream_base=os.environ.get("UPSTREAM_BASE", ""),
+)

@@ -11,7 +11,7 @@ The marker is registered programmatically so no separate ini file is needed.
 from __future__ import annotations
 
 import pytest
-from hypothesis import settings, HealthCheck
+from hypothesis import HealthCheck, settings
 
 
 def pytest_configure(config: pytest.Config) -> None:

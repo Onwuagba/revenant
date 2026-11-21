@@ -4,17 +4,12 @@ import json
 
 import pytest
 from pydantic import ValidationError
-
 from revenant.compiler.ir import (
     App,
-    CarrierProfile,
     Flow,
     Operation,
     Param,
-    ParamConstraints,
     ParamType,
-    Result,
-    SecretType,
     canonical_json,
 )
 
@@ -116,7 +111,9 @@ def test_flattened_param_recursive():
     sub1 = Param(name="first", label="First", type=ParamType.TOKEN)
     sub2 = Param(name="second", label="Second", type=ParamType.BOOLEAN)
     flat = Param(
-        name="address", label="Address", type=ParamType.FLATTENED,
+        name="address",
+        label="Address",
+        type=ParamType.FLATTENED,
         params=[sub1, sub2],
     )
     expanded = flat.expand()

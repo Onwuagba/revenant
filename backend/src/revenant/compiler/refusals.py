@@ -31,14 +31,19 @@ class RefusalCode(str, Enum):
 
 #: Human-readable hints for each code.
 HINTS: dict[RefusalCode, str] = {
-    RefusalCode.R_NESTED_OBJECT: "Flatten nested objects into separate parameters or use a list endpoint.",
-    RefusalCode.R_POLYMORPHIC: "Provide separate operations for each variant instead of oneOf/anyOf/allOf.",
+    RefusalCode.R_NESTED_OBJECT: "Flatten nested objects into separate parameters or use a "
+    "list endpoint.",
+    RefusalCode.R_POLYMORPHIC: "Provide separate operations for each variant instead of "
+    "oneOf/anyOf/allOf.",
     RefusalCode.R_FREE_TEXT: "Add an enum, pattern, or maxLength<=20 to constrain free-text input.",
-    RefusalCode.R_DATETIME: "Use format 'date' with x-revenant-date-window N (N<=7) for a day picker.",
-    RefusalCode.R_UNBOUNDED_NUMBER: "Add both minimum and maximum (at most 9 digits) to bound the number.",
+    RefusalCode.R_DATETIME: "Use format 'date' with x-revenant-date-window N (N<=7) for a "
+    "day picker.",
+    RefusalCode.R_UNBOUNDED_NUMBER: "Add both minimum and maximum (at most 9 digits) to "
+    "bound the number.",
     RefusalCode.R_TOO_MANY_PARAMS: "Reduce required parameters to at most 5 per flow.",
     RefusalCode.R_BINARY: "Binary/byte/multipart inputs are not supported on feature phones.",
-    RefusalCode.R_AUTH_SCHEME: "Use a server-held API key or bearer token, not per-user OAuth/OIDC.",
+    RefusalCode.R_AUTH_SCHEME: "Use a server-held API key or bearer token, not per-user "
+    "OAuth/OIDC.",
     RefusalCode.R_CALLBACK: "Webhooks, callbacks and streaming are not supported over USSD.",
     RefusalCode.R_NON_GSM7: "Transliterate to GSM-7 safe characters or shorten the label/value.",
     RefusalCode.R_REF_UNRESOLVED: "Inline the schema or add the host to the ref allowlist.",

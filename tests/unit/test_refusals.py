@@ -42,8 +42,9 @@ def test_refusal_make_uses_defaults():
 
 
 def test_refusal_make_custom_message_hint():
-    r = Refusal.make("op1", "#/x", RefusalCode.R_FREE_TEXT,
-                     message="custom msg", hint="custom hint")
+    r = Refusal.make(
+        "op1", "#/x", RefusalCode.R_FREE_TEXT, message="custom msg", hint="custom hint"
+    )
     assert r.message == "custom msg"
     assert r.hint == "custom hint"
 

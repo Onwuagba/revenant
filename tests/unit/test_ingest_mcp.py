@@ -4,8 +4,6 @@ Tests map_tool_to_draft, ingest_mcp_tools, safety rules, and wiring to
 the classifier. Uses mock tool definitions (no live server needed).
 """
 
-import pytest
-
 from revenant.compiler.ingest_mcp import (
     STDIO_REGISTRY,
     ingest_mcp_tools,
@@ -113,7 +111,10 @@ class TestIngestMcpTools:
                 "inputSchema": {
                     "type": "object",
                     "properties": {
-                        "crop": {"type": "string", "enum": ["maize", "rice", "beans", "cassava", "yam"]},
+                        "crop": {
+                            "type": "string",
+                            "enum": ["maize", "rice", "beans", "cassava", "yam"],
+                        },
                     },
                     "required": ["crop"],
                 },
@@ -172,3 +173,24 @@ class TestSafetyRules:
         op_ids = {op.id for op in app.operations}
         assert "benign_tool" in op_ids
         assert "evil_op" not in op_ids
+
+
+class TestSdkToolObject:
+    def test_sdk_tool_model_keeps_its_input_schema(self):
+        """mcp 2.x names the field input_schema; it must not be read as 'no parameters'."""
+        from mcp import types
+
+        tool = types.Tool(
+            name="search_market",
+            description="Search",
+            input_schema={
+                "type": "object",
+                "properties": {"query": {"type": "string"}},
+                "required": ["query"],
+            },
+        )
+        drafts, _ = ingest_mcp_tools([tool])
+        assert [p.name for p in drafts[0].params] == ["query"]
+        app, report = classify_app(drafts)
+        assert app.operations == []
+        assert RefusalCode.R_FREE_TEXT.value in report["per_code"]

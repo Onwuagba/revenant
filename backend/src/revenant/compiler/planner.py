@@ -16,7 +16,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .ir import App, CarrierProfile, Operation, Param, ParamType, OpKind
+from .ir import App, CarrierProfile, Operation, OpKind, Param, ParamType
 
 #: Items per page on paginated menus.
 ITEMS_PER_PAGE = 5
@@ -42,10 +42,18 @@ class StateKind(str, Enum):
 
 TERMINAL_KINDS = frozenset({StateKind.RESULT_END, StateKind.SMS_END, StateKind.ERROR_END})
 
-SCREEN_KINDS = frozenset({
-    StateKind.MENU, StateKind.INPUT, StateKind.CONFIRM, StateKind.PIN,
-    StateKind.RESULT_END, StateKind.RESULT_CON, StateKind.SMS_END, StateKind.ERROR_END,
-})
+SCREEN_KINDS = frozenset(
+    {
+        StateKind.MENU,
+        StateKind.INPUT,
+        StateKind.CONFIRM,
+        StateKind.PIN,
+        StateKind.RESULT_END,
+        StateKind.RESULT_CON,
+        StateKind.SMS_END,
+        StateKind.ERROR_END,
+    }
+)
 
 
 class Slot(BaseModel):
@@ -83,8 +91,9 @@ class Machine(BaseModel):
     def canonical_dict(self) -> dict[str, Any]:
         return {
             "root": self.root,
-            "states": {sid: self.states[sid].model_dump(mode="json")
-                       for sid in sorted(self.states)},
+            "states": {
+                sid: self.states[sid].model_dump(mode="json") for sid in sorted(self.states)
+            },
             "carrier_profile": self.carrier_profile.model_dump(mode="json"),
             "max_retries": self.max_retries,
             "refused_op_ids": sorted(self.refused_op_ids),
@@ -95,8 +104,12 @@ def _param_kind(p: Param) -> StateKind:
     """Determine the state kind for a parameter."""
     if p.type == ParamType.PIN:
         return StateKind.PIN
-    if p.type in (ParamType.ENUM_MENU, ParamType.DYNAMIC_CHOICE,
-                  ParamType.DATE_WINDOW, ParamType.BOOLEAN):
+    if p.type in (
+        ParamType.ENUM_MENU,
+        ParamType.DYNAMIC_CHOICE,
+        ParamType.DATE_WINDOW,
+        ParamType.BOOLEAN,
+    ):
         return StateKind.MENU
     return StateKind.INPUT
 
@@ -138,7 +151,8 @@ def plan(app: App, refused_op_ids: set[str] | None = None) -> Machine:
     ops = app.sorted_operations()
     if not ops:
         machine.states["root"] = State(
-            id="root", kind=StateKind.MENU, title="No services available")
+            id="root", kind=StateKind.MENU, title="No services available"
+        )
         return machine
 
     # Build each op's flow, record entry state id
@@ -151,16 +165,14 @@ def plan(app: App, refused_op_ids: set[str] | None = None) -> Machine:
 
     # Error end
     machine.states["error_end"] = State(
-        id="error_end", kind=StateKind.ERROR_END,
-        title="Session ended. Try again later.")
+        id="error_end", kind=StateKind.ERROR_END, title="Session ended. Try again later."
+    )
 
     _add_back_navigation(machine)
     return machine
 
 
-def _build_root_menu(
-    machine: Machine, ops: list[Operation], entry_ids: dict[str, str]
-) -> None:
+def _build_root_menu(machine: Machine, ops: list[Operation], entry_ids: dict[str, str]) -> None:
     sorted_ops = sorted(ops, key=lambda o: o.id)
 
     if len(sorted_ops) <= MAX_ROOT_ENTRIES:
@@ -168,17 +180,15 @@ def _build_root_menu(
         for i, op in enumerate(sorted_ops):
             transitions[str(i + 1)] = entry_ids[op.id]
         machine.states["root"] = State(
-            id="root", kind=StateKind.MENU, title="Select service",
-            transitions=transitions)
+            id="root", kind=StateKind.MENU, title="Select service", transitions=transitions
+        )
         machine.root = "root"
         return
 
     _build_paginated_root(machine, sorted_ops, entry_ids)
 
 
-def _build_paginated_root(
-    machine: Machine, ops: list[Operation], entry_ids: dict[str, str]
-) -> str:
+def _build_paginated_root(machine: Machine, ops: list[Operation], entry_ids: dict[str, str]) -> str:
     total = len(ops)
     num_pages = (total + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE
     first_page = "root_p0"
@@ -199,8 +209,12 @@ def _build_paginated_root(
             next_page = f"root_p{page + 1}"
 
         machine.states[page_id] = State(
-            id=page_id, kind=StateKind.MENU, title="Select service",
-            transitions=transitions, next_page=next_page)
+            id=page_id,
+            kind=StateKind.MENU,
+            title="Select service",
+            transitions=transitions,
+            next_page=next_page,
+        )
 
     machine.root = first_page
     return first_page
@@ -227,8 +241,7 @@ def _build_op_flow(machine: Machine, op: Operation) -> str:
     for i, (sid, kind, pname) in enumerate(flow):
         # prev = root for the first state, otherwise the previous state
         prev = root if i == 0 else flow[i - 1][0]
-        state = State(id=sid, kind=kind, op_id=op.id, param_name=pname,
-                      title=op.title, prev=prev)
+        state = State(id=sid, kind=kind, op_id=op.id, param_name=pname, title=op.title, prev=prev)
         if i < len(flow) - 1:
             nxt = flow[i + 1][0]
             if kind in (StateKind.INPUT, StateKind.PIN, StateKind.ACTION):

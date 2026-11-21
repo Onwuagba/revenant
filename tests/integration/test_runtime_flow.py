@@ -3,6 +3,7 @@
 Covers dedupe, canary PIN (P9), lockout, SMS fallback, worker, retention and
 the no-LLM guarantee (spec runtime-sms tasks 6-16).
 """
+
 import logging
 import os
 from datetime import timedelta
@@ -11,13 +12,13 @@ from pathlib import Path
 import httpx
 import pytest
 from fastapi.testclient import TestClient
-
-from examples.clinic_api.server import create_app as create_clinic
 from revenant.compiler.emit import compile_app
 from revenant.compiler.ingest_openapi import ingest_openapi
 from revenant.compiler.subset import classify_app
 from revenant.runtime.app import build_router
 from revenant.runtime.store import dump_database
+
+from examples.clinic_api.server import create_app as create_clinic
 
 pytestmark = pytest.mark.integration
 
@@ -49,8 +50,10 @@ def env(bundle):
 
 
 def ussd(tc, text, session="S1", phone="+2348000000001"):
-    r = tc.post("/ussd/clinic/tok", data={"sessionId": session, "serviceCode": "*384#",
-                                          "phoneNumber": phone, "text": text})
+    r = tc.post(
+        "/ussd/clinic/tok",
+        data={"sessionId": session, "serviceCode": "*384#", "phoneNumber": phone, "text": text},
+    )
     assert r.status_code == 200
     return r.text
 
@@ -69,8 +72,17 @@ def test_list_clinics_end(env):
 
 def test_wrong_token_and_malformed(env):
     tc, _, _ = env
-    assert tc.post("/ussd/clinic/nope", data={"sessionId": "a", "phoneNumber": "1", "text": ""}).status_code == 404
-    r = tc.post("/ussd/clinic/tok", content=b"\xff\xfe", headers={"content-type": "application/x-www-form-urlencoded"})
+    assert (
+        tc.post(
+            "/ussd/clinic/nope", data={"sessionId": "a", "phoneNumber": "1", "text": ""}
+        ).status_code
+        == 404
+    )
+    r = tc.post(
+        "/ussd/clinic/tok",
+        content=b"\xff\xfe",
+        headers={"content-type": "application/x-www-form-urlencoded"},
+    )
     assert r.status_code == 200 and r.text.startswith("END ")
 
 
@@ -143,7 +155,9 @@ def test_worker_rate_limit_and_retry(bundle):
     from revenant.runtime.worker import SmsWorker, SqlSmsOutbox
 
     class Flaky(SmsProvider):
-        def __init__(self): self.n = 0
+        def __init__(self):
+            self.n = 0
+
         def send(self, msisdn, body):
             self.n += 1
             if self.n == 1:
@@ -163,6 +177,7 @@ def test_purge(env):
     tc, _, app = env
     ussd(tc, "2")
     from revenant.runtime.store import SessionStore
+
     out = SessionStore(app.state.engine).purge(sent_sms_older_than=timedelta(seconds=0))
     assert set(out) == {"sessions", "options", "sms"}
 
@@ -172,7 +187,6 @@ def test_alembic_migration_matches_models(tmp_path):
     import sqlalchemy as sa
     from alembic import command
     from alembic.config import Config
-
     from revenant.runtime.store import metadata
 
     db = tmp_path / "m.db"

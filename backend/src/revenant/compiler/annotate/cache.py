@@ -18,9 +18,14 @@ class AnnotationCache:
 
     def get(self, spec_hash: str, agent_version: str) -> dict[str, Any] | None:
         with self.engine.connect() as conn:
-            row = conn.execute(sa.select(annotation_cache.c.annotations).where(sa.and_(
-                annotation_cache.c.spec_hash == spec_hash,
-                annotation_cache.c.agent_version == agent_version))).first()
+            row = conn.execute(
+                sa.select(annotation_cache.c.annotations).where(
+                    sa.and_(
+                        annotation_cache.c.spec_hash == spec_hash,
+                        annotation_cache.c.agent_version == agent_version,
+                    )
+                )
+            ).first()
         if row is None:
             return None
         ann = json.loads(row[0])
@@ -28,9 +33,18 @@ class AnnotationCache:
 
     def put(self, spec_hash: str, agent_version: str, annotations: dict[str, Any]) -> None:
         with self.engine.begin() as conn:
-            conn.execute(sa.delete(annotation_cache).where(sa.and_(
-                annotation_cache.c.spec_hash == spec_hash,
-                annotation_cache.c.agent_version == agent_version)))
-            conn.execute(sa.insert(annotation_cache).values(
-                spec_hash=spec_hash, agent_version=agent_version,
-                annotations=json.dumps(annotations, sort_keys=True)))
+            conn.execute(
+                sa.delete(annotation_cache).where(
+                    sa.and_(
+                        annotation_cache.c.spec_hash == spec_hash,
+                        annotation_cache.c.agent_version == agent_version,
+                    )
+                )
+            )
+            conn.execute(
+                sa.insert(annotation_cache).values(
+                    spec_hash=spec_hash,
+                    agent_version=agent_version,
+                    annotations=json.dumps(annotations, sort_keys=True),
+                )
+            )

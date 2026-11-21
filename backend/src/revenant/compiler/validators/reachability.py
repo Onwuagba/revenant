@@ -20,10 +20,13 @@ def validate_reachability(machine: Machine) -> ValidationResult:
         if machine.states[sid].kind == StateKind.ERROR_END:
             continue
         if sid not in reachable:
-            violations.append(Violation(
-                validator="V1_reachability", state_id=sid,
-                message=f"State {sid} is not reachable from ROOT",
-            ))
+            violations.append(
+                Violation(
+                    validator="V1_reachability",
+                    state_id=sid,
+                    message=f"State {sid} is not reachable from ROOT",
+                )
+            )
 
     return ValidationResult(
         validator="V1_reachability",

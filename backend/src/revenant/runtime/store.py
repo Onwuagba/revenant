@@ -11,7 +11,7 @@ import base64
 import hashlib
 import hmac
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import sqlalchemy as sa
@@ -19,7 +19,8 @@ import sqlalchemy as sa
 metadata = sa.MetaData()
 
 ussd_sessions = sa.Table(
-    "ussd_sessions", metadata,
+    "ussd_sessions",
+    metadata,
     sa.Column("session_id", sa.String(128), primary_key=True),
     sa.Column("deployment_id", sa.String(64), nullable=False),
     sa.Column("msisdn_hmac", sa.String(64), nullable=False),
@@ -30,7 +31,8 @@ ussd_sessions = sa.Table(
 )
 
 session_events = sa.Table(
-    "session_events", metadata,
+    "session_events",
+    metadata,
     sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
     sa.Column("session_id", sa.String(128), nullable=False),
     sa.Column("step_index", sa.Integer, nullable=False),
@@ -40,14 +42,16 @@ session_events = sa.Table(
 )
 
 option_cache = sa.Table(
-    "option_cache", metadata,
+    "option_cache",
+    metadata,
     sa.Column("key", sa.String(128), primary_key=True),
     sa.Column("value", sa.Text, nullable=False),
     sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
 )
 
 pin_attempts = sa.Table(
-    "pin_attempts", metadata,
+    "pin_attempts",
+    metadata,
     sa.Column("msisdn_hmac", sa.String(64), primary_key=True),
     sa.Column("deployment_id", sa.String(64), primary_key=True),
     sa.Column("failures", sa.Integer, nullable=False, default=0),
@@ -55,7 +59,8 @@ pin_attempts = sa.Table(
 )
 
 sms_outbox = sa.Table(
-    "sms_outbox", metadata,
+    "sms_outbox",
+    metadata,
     sa.Column("id", sa.String(36), primary_key=True),
     sa.Column("deployment_id", sa.String(64), nullable=False),
     sa.Column("msisdn_enc", sa.Text, nullable=False),
@@ -70,7 +75,8 @@ sms_outbox = sa.Table(
 )
 
 annotation_cache = sa.Table(
-    "annotation_cache", metadata,
+    "annotation_cache",
+    metadata,
     sa.Column("spec_hash", sa.String(64), primary_key=True),
     sa.Column("agent_version", sa.String(32), primary_key=True),
     sa.Column("annotations", sa.Text, nullable=False),
@@ -81,7 +87,7 @@ ALL_TABLES = [ussd_sessions, session_events, option_cache, pin_attempts, sms_out
 
 
 def now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def make_engine(url: str = "sqlite+pysqlite:///:memory:") -> sa.Engine:
@@ -104,12 +110,14 @@ def make_engine(url: str = "sqlite+pysqlite:///:memory:") -> sa.Engine:
         kwargs = {"connect_args": {"check_same_thread": False, "timeout": 30}}
     engine = sa.create_engine(url, **kwargs)
     if url.startswith("sqlite"):
+
         @sa.event.listens_for(engine, "connect")
         def _pragmas(dbapi_conn, _):  # type: ignore[no-untyped-def]
             cur = dbapi_conn.cursor()
             cur.execute("PRAGMA journal_mode=WAL")
             cur.execute("PRAGMA busy_timeout=30000")
             cur.close()
+
     return engine
 
 
@@ -166,44 +174,71 @@ class SessionStore:
 
     def get(self, session_id: str) -> dict[str, Any] | None:
         with self.engine.connect() as conn:
-            row = conn.execute(
-                sa.select(ussd_sessions).where(ussd_sessions.c.session_id == session_id)
-            ).mappings().first()
+            row = (
+                conn.execute(
+                    sa.select(ussd_sessions).where(ussd_sessions.c.session_id == session_id)
+                )
+                .mappings()
+                .first()
+            )
         if row is None:
             return None
         exp = row["expires_at"]
         if exp.tzinfo is None:
-            exp = exp.replace(tzinfo=timezone.utc)
+            exp = exp.replace(tzinfo=UTC)
         if exp < now():
             return None
         return dict(row)
 
-    def put(self, *, session_id: str, deployment_id: str, msisdn_hmac: str,
-            state_id: str, step_index: int, last_response: str) -> None:
+    def put(
+        self,
+        *,
+        session_id: str,
+        deployment_id: str,
+        msisdn_hmac: str,
+        state_id: str,
+        step_index: int,
+        last_response: str,
+    ) -> None:
         values = dict(
-            session_id=session_id, deployment_id=deployment_id, msisdn_hmac=msisdn_hmac,
-            state_id=state_id, step_index=step_index, last_response=last_response,
+            session_id=session_id,
+            deployment_id=deployment_id,
+            msisdn_hmac=msisdn_hmac,
+            state_id=state_id,
+            step_index=step_index,
+            last_response=last_response,
             expires_at=now() + SESSION_TTL,
         )
         with self.engine.begin() as conn:
             res = conn.execute(
                 sa.update(ussd_sessions)
-                .where(ussd_sessions.c.session_id == session_id).values(**values)
+                .where(ussd_sessions.c.session_id == session_id)
+                .values(**values)
             )
             if res.rowcount == 0:
                 conn.execute(sa.insert(ussd_sessions).values(**values))
 
     def event(self, session_id: str, step_index: int, state_id: str, kind: str) -> None:
         with self.engine.begin() as conn:
-            conn.execute(sa.insert(session_events).values(
-                session_id=session_id, step_index=step_index,
-                state_id=state_id, kind=kind, at=now()))
+            conn.execute(
+                sa.insert(session_events).values(
+                    session_id=session_id,
+                    step_index=step_index,
+                    state_id=state_id,
+                    kind=kind,
+                    at=now(),
+                )
+            )
 
     def events(self, session_id: str) -> list[dict[str, Any]]:
         with self.engine.connect() as conn:
-            rows = conn.execute(
-                sa.select(session_events).where(session_events.c.session_id == session_id)
-            ).mappings().all()
+            rows = (
+                conn.execute(
+                    sa.select(session_events).where(session_events.c.session_id == session_id)
+                )
+                .mappings()
+                .all()
+            )
         return [dict(r) for r in rows]
 
     def purge(self, *, sent_sms_older_than: timedelta = timedelta(hours=24)) -> dict[str, int]:
@@ -212,8 +247,11 @@ class SessionStore:
         with self.engine.begin() as conn:
             s = conn.execute(sa.delete(ussd_sessions).where(ussd_sessions.c.expires_at < now()))
             c = conn.execute(sa.delete(option_cache).where(option_cache.c.expires_at < now()))
-            m = conn.execute(sa.delete(sms_outbox).where(
-                sa.and_(sms_outbox.c.status == "sent", sms_outbox.c.created_at < cutoff)))
+            m = conn.execute(
+                sa.delete(sms_outbox).where(
+                    sa.and_(sms_outbox.c.status == "sent", sms_outbox.c.created_at < cutoff)
+                )
+            )
         return {"sessions": s.rowcount, "options": c.rowcount, "sms": m.rowcount}
 
 
@@ -226,19 +264,24 @@ class OptionCache:
 
     def get(self, key: str) -> str | None:
         with self.engine.connect() as conn:
-            row = conn.execute(sa.select(option_cache).where(option_cache.c.key == key)).mappings().first()
+            row = (
+                conn.execute(sa.select(option_cache).where(option_cache.c.key == key))
+                .mappings()
+                .first()
+            )
         if row is None:
             return None
         exp = row["expires_at"]
         if exp.tzinfo is None:
-            exp = exp.replace(tzinfo=timezone.utc)
+            exp = exp.replace(tzinfo=UTC)
         return row["value"] if exp >= now() else None
 
     def put(self, key: str, value: str) -> None:
         with self.engine.begin() as conn:
             conn.execute(sa.delete(option_cache).where(option_cache.c.key == key))
-            conn.execute(sa.insert(option_cache).values(
-                key=key, value=value, expires_at=now() + self.ttl))
+            conn.execute(
+                sa.insert(option_cache).values(key=key, value=value, expires_at=now() + self.ttl)
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -255,8 +298,15 @@ class PinGuard:
         self.engine = engine
 
     def _row(self, conn: sa.Connection, h: str, dep: str) -> dict[str, Any] | None:
-        r = conn.execute(sa.select(pin_attempts).where(sa.and_(
-            pin_attempts.c.msisdn_hmac == h, pin_attempts.c.deployment_id == dep))).mappings().first()
+        r = (
+            conn.execute(
+                sa.select(pin_attempts).where(
+                    sa.and_(pin_attempts.c.msisdn_hmac == h, pin_attempts.c.deployment_id == dep)
+                )
+            )
+            .mappings()
+            .first()
+        )
         return dict(r) if r else None
 
     def is_locked(self, h: str, dep: str) -> bool:
@@ -266,26 +316,38 @@ class PinGuard:
             return False
         lu = r["locked_until"]
         if lu.tzinfo is None:
-            lu = lu.replace(tzinfo=timezone.utc)
-        return lu > now()
+            lu = lu.replace(tzinfo=UTC)
+        return bool(lu > now())
 
     def record_failure(self, h: str, dep: str) -> bool:
         """Record a failure; returns True if the MSISDN is now locked."""
         with self.engine.begin() as conn:
             r = self._row(conn, h, dep)
             if r is None:
-                conn.execute(sa.insert(pin_attempts).values(
-                    msisdn_hmac=h, deployment_id=dep, failures=1, locked_until=None))
+                conn.execute(
+                    sa.insert(pin_attempts).values(
+                        msisdn_hmac=h, deployment_id=dep, failures=1, locked_until=None
+                    )
+                )
                 failures = 1
             else:
                 failures = r["failures"] + 1
                 locked = now() + LOCK_DURATION if failures >= MAX_PIN_FAILURES else None
-                conn.execute(sa.update(pin_attempts).where(sa.and_(
-                    pin_attempts.c.msisdn_hmac == h, pin_attempts.c.deployment_id == dep
-                )).values(failures=failures, locked_until=locked))
+                conn.execute(
+                    sa.update(pin_attempts)
+                    .where(
+                        sa.and_(
+                            pin_attempts.c.msisdn_hmac == h, pin_attempts.c.deployment_id == dep
+                        )
+                    )
+                    .values(failures=failures, locked_until=locked)
+                )
         return failures >= MAX_PIN_FAILURES
 
     def record_success(self, h: str, dep: str) -> None:
         with self.engine.begin() as conn:
-            conn.execute(sa.delete(pin_attempts).where(sa.and_(
-                pin_attempts.c.msisdn_hmac == h, pin_attempts.c.deployment_id == dep)))
+            conn.execute(
+                sa.delete(pin_attempts).where(
+                    sa.and_(pin_attempts.c.msisdn_hmac == h, pin_attempts.c.deployment_id == dep)
+                )
+            )

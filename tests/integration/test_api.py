@@ -1,11 +1,9 @@
 """Platform API: auth, authz, samples, compile + SSE, emulator, deployments."""
-import json
-import time
+
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-
 from revenant.api.app import create_app
 from revenant.runtime.store import make_engine
 
@@ -41,22 +39,36 @@ def test_samples_public_and_compiled(client):
 def test_auth_required_and_csrf(client):
     assert client.post("/api/v1/projects", json={"title": "T", "slug": "tt"}).status_code == 401
     h = signup(client)
-    assert client.post("/api/v1/projects", json={"title": "T", "slug": "tt"}).status_code == 403  # no CSRF
+    assert (
+        client.post("/api/v1/projects", json={"title": "T", "slug": "tt"}).status_code == 403
+    )  # no CSRF
     r = client.post("/api/v1/projects", json={"title": "T", "slug": "tt"}, headers=h)
     assert r.status_code == 201
-    assert client.post("/api/v1/auth/login", json={"email": "a@x.io", "password": "wrongwrong"}).status_code == 401
+    assert (
+        client.post(
+            "/api/v1/auth/login", json={"email": "a@x.io", "password": "wrongwrong"}
+        ).status_code
+        == 401
+    )
 
 
 def test_viewer_is_read_only(client):
-    r = client.post("/api/v1/auth/login", json={"email": "viewer@revenant.local", "password": "viewerpass1"})
+    r = client.post(
+        "/api/v1/auth/login", json={"email": "viewer@revenant.local", "password": "viewerpass1"}
+    )
     assert r.status_code == 200
     h = {"x-csrf-token": r.json()["csrf"]}
-    assert client.post("/api/v1/projects", json={"title": "T", "slug": "vv"}, headers=h).status_code == 403
+    assert (
+        client.post("/api/v1/projects", json={"title": "T", "slug": "vv"}, headers=h).status_code
+        == 403
+    )
 
 
 def test_cross_project_isolation(client):
     h1 = signup(client, "one@x.io")
-    pid = client.post("/api/v1/projects", json={"title": "Mine", "slug": "mine"}, headers=h1).json()["id"]
+    pid = client.post(
+        "/api/v1/projects", json={"title": "Mine", "slug": "mine"}, headers=h1
+    ).json()["id"]
     client.cookies.clear()
     h2 = signup(client, "two@x.io")
     assert client.get(f"/api/v1/projects/{pid}").status_code == 404
@@ -65,14 +77,31 @@ def test_cross_project_isolation(client):
 
 def test_compile_flow_sse_deploy_and_ussd(client):
     h = signup(client)
-    pid = client.post("/api/v1/projects", json={"title": "Mine", "slug": "mine"}, headers=h).json()["id"]
-    assert client.post(f"/api/v1/projects/{pid}/compile", json={}, headers=h).status_code == 422  # no source
-    assert client.post(f"/api/v1/projects/{pid}/sources", json={"kind": "mcp", "url": "http://127.0.0.1/mcp"},
-                       headers=h).status_code == 422  # SSRF guard
-    assert client.post(f"/api/v1/projects/{pid}/sources", json={"kind": "openapi", "content": CLINIC},
-                       headers=h).status_code == 201
-    rid = client.post(f"/api/v1/projects/{pid}/compile", json={"annotator": "deterministic"},
-                      headers=h).json()["id"]
+    pid = client.post("/api/v1/projects", json={"title": "Mine", "slug": "mine"}, headers=h).json()[
+        "id"
+    ]
+    assert (
+        client.post(f"/api/v1/projects/{pid}/compile", json={}, headers=h).status_code == 422
+    )  # no source
+    assert (
+        client.post(
+            f"/api/v1/projects/{pid}/sources",
+            json={"kind": "mcp", "url": "http://127.0.0.1/mcp"},
+            headers=h,
+        ).status_code
+        == 422
+    )  # SSRF guard
+    assert (
+        client.post(
+            f"/api/v1/projects/{pid}/sources",
+            json={"kind": "openapi", "content": CLINIC},
+            headers=h,
+        ).status_code
+        == 201
+    )
+    rid = client.post(
+        f"/api/v1/projects/{pid}/compile", json={"annotator": "deterministic"}, headers=h
+    ).json()["id"]
     with client.stream("GET", f"/api/v1/compile-runs/{rid}/events") as s:
         body = "".join(s.iter_text())
     for ev in ("event: stage", "event: validator", "event: kiro_event", "event: done"):
@@ -89,7 +118,10 @@ def test_compile_flow_sse_deploy_and_ussd(client):
     url = dep["callback_url"].replace("http://testserver", "")
     r = client.post(url, data={"sessionId": "s", "phoneNumber": "+2348000000001", "text": ""})
     assert r.text.startswith("CON ")
-    assert client.post(url + "x", data={"sessionId": "s", "phoneNumber": "1", "text": ""}).status_code == 404
+    assert (
+        client.post(url + "x", data={"sessionId": "s", "phoneNumber": "1", "text": ""}).status_code
+        == 404
+    )
 
 
 def test_emulator_clinic_booking_and_sms_inbox(client, monkeypatch):
@@ -97,7 +129,10 @@ def test_emulator_clinic_booking_and_sms_inbox(client, monkeypatch):
     ps = {p["slug"]: p for p in client.get("/api/v1/projects").json()}
     bid = client.get(f"/api/v1/projects/{ps['clinic-booking']['id']}").json()["bundles"][0]["id"]
     sid = client.post("/api/v1/emulator/sessions", json={"bundle_id": bid}).json()["session_id"]
-    inp = lambda t: client.post(f"/api/v1/emulator/sessions/{sid}/input", json={"text": t}).json()
+
+    def inp(t):
+        return client.post(f"/api/v1/emulator/sessions/{sid}/input", json={"text": t}).json()
+
     assert inp("")["type"] == "CON"
     out = inp("1*c1*s1*1*2468")
     assert out["type"] == "END" and "code:" in out["text"]

@@ -1,8 +1,8 @@
 """Tests for planner.py — machine model, single/multi ops, writes/PIN, pagination."""
 
-from revenant.compiler.ir import App, Operation, Param, ParamType, DraftOperation, DraftParam, OpKind
+from revenant.compiler.ir import App, DraftOperation, DraftParam
+from revenant.compiler.planner import MAX_RETRIES, StateKind, plan
 from revenant.compiler.subset import classify_app
-from revenant.compiler.planner import plan, StateKind, Machine, MAX_ROOT_ENTRIES, MAX_RETRIES
 
 
 def _app(ops):
@@ -22,9 +22,15 @@ class TestStateMachine:
         assert m.states["root"].kind == StateKind.MENU
 
     def test_single_read_op_flow(self):
-        drafts = [_draft("get_price", "Get Price", params=[
-            DraftParam(name="item", schema={"type": "string", "enum": ["a", "b"]}),
-        ])]
+        drafts = [
+            _draft(
+                "get_price",
+                "Get Price",
+                params=[
+                    DraftParam(name="item", json_schema={"type": "string", "enum": ["a", "b"]}),
+                ],
+            )
+        ]
         app, _ = classify_app(drafts)
         m = plan(app)
         assert "get_price__step0_item" in m.states
@@ -33,9 +39,14 @@ class TestStateMachine:
         assert "get_price__result" in m.states
 
     def test_back_and_home_transitions(self):
-        drafts = [_draft("get_price", params=[
-            DraftParam(name="item", schema={"type": "string", "enum": ["a", "b"]}),
-        ])]
+        drafts = [
+            _draft(
+                "get_price",
+                params=[
+                    DraftParam(name="item", json_schema={"type": "string", "enum": ["a", "b"]}),
+                ],
+            )
+        ]
         app, _ = classify_app(drafts)
         m = plan(app)
         item = m.states["get_price__step0_item"]
@@ -44,20 +55,43 @@ class TestStateMachine:
         assert item.transitions["00"] == "root"
 
     def test_write_op_has_confirm(self):
-        drafts = [_draft("book", "Book", kind="write", params=[
-            DraftParam(name="name", schema={"type": "string", "maxLength": 10}),
-        ])]
+        drafts = [
+            _draft(
+                "book",
+                "Book",
+                kind="write",
+                params=[
+                    DraftParam(name="name", json_schema={"type": "string", "maxLength": 10}),
+                ],
+            )
+        ]
         app, _ = classify_app(drafts)
         m = plan(app)
         assert "book__confirm" in m.states
         assert m.states["book__confirm"].kind == StateKind.CONFIRM
 
     def test_pin_last_before_action(self):
-        drafts = [_draft("pay", "Pay", kind="write", params=[
-            DraftParam(name="amount", schema={"type": "integer", "minimum": 1, "maximum": 100}),
-            DraftParam(name="pin", schema={"type": "string", "x-revenant-secret": "pin",
-                       "minLength": 4, "maxLength": 6}),
-        ])]
+        drafts = [
+            _draft(
+                "pay",
+                "Pay",
+                kind="write",
+                params=[
+                    DraftParam(
+                        name="amount", json_schema={"type": "integer", "minimum": 1, "maximum": 100}
+                    ),
+                    DraftParam(
+                        name="pin",
+                        json_schema={
+                            "type": "string",
+                            "x-revenant-secret": "pin",
+                            "minLength": 4,
+                            "maxLength": 6,
+                        },
+                    ),
+                ],
+            )
+        ]
         app, _ = classify_app(drafts)
         m = plan(app)
         pin = m.states["pay__pin"]

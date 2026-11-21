@@ -4,13 +4,15 @@ One test per supported row and per refusal code.
 """
 
 import pytest
-
-from revenant.compiler.ir import DraftOperation, DraftParam, OpKind, ParamType, SecretType
+from revenant.compiler.ir import (
+    DraftOperation,
+    DraftParam,
+    OpKind,
+    ParamType,
+    SecretType,
+)
 from revenant.compiler.refusals import RefusalCode
 from revenant.compiler.subset import (
-    MAX_ENUM_VALUES,
-    MAX_FLAT_OBJECT_PROPS,
-    MAX_REQUIRED_PARAMS,
     classify_app,
     classify_operation,
     classify_schema,
@@ -124,22 +126,19 @@ class TestScalarRefusals:
 # ---------------------------------------------------------------------------
 class TestPinDateOptions:
     def test_pin(self):
-        r = classify({"type": "string", "x-revenant-secret": "pin",
-                       "minLength": 4, "maxLength": 6})
+        r = classify({"type": "string", "x-revenant-secret": "pin", "minLength": 4, "maxLength": 6})
         assert is_param(r)
         assert r.type == ParamType.PIN
         assert r.secret == SecretType.PIN
 
     def test_date_window(self):
-        r = classify({"type": "string", "format": "date",
-                       "x-revenant-date-window": 5})
+        r = classify({"type": "string", "format": "date", "x-revenant-date-window": 5})
         assert is_param(r)
         assert r.type == ParamType.DATE_WINDOW
         assert r.constraints.window == 5
 
     def test_date_window_at_limit_7(self):
-        r = classify({"type": "string", "format": "date",
-                       "x-revenant-date-window": 7})
+        r = classify({"type": "string", "format": "date", "x-revenant-date-window": 7})
         assert is_param(r)
         assert r.type == ParamType.DATE_WINDOW
 
@@ -165,8 +164,7 @@ class TestDateRefusals:
         assert r.code == RefusalCode.R_DATETIME
 
     def test_date_window_over_7(self):
-        r = classify({"type": "string", "format": "date",
-                       "x-revenant-date-window": 8})
+        r = classify({"type": "string", "format": "date", "x-revenant-date-window": 8})
         assert is_refusal(r)
         assert r.code == RefusalCode.R_DATETIME
 
@@ -242,8 +240,9 @@ class TestObjects:
         assert r.code == RefusalCode.R_TOO_MANY_PARAMS
 
     def test_array_of_objects_refused(self):
-        r = classify({"type": "array", "items": {"type": "object",
-                       "properties": {"x": {"type": "string"}}}})
+        r = classify(
+            {"type": "array", "items": {"type": "object", "properties": {"x": {"type": "string"}}}}
+        )
         assert is_refusal(r)
         assert r.code == RefusalCode.R_NESTED_OBJECT
 
@@ -307,22 +306,25 @@ class TestRefAndRecursion:
 class TestTotalityNeverRaises:
     """Requirement 3.3: classifier never raises for any input."""
 
-    @pytest.mark.parametrize("schema", [
-        None,
-        True,
-        False,
-        [],
-        {},
-        {"type": "unknown"},
-        {"type": "string", "enum": "not_a_list"},
-        {"type": "object", "properties": None},
-        {"type": "integer", "minimum": "abc", "maximum": "xyz"},
-        {"$ref": 42},
-        {"oneOf": "not_a_list"},
-        {"type": "string", "pattern": 123},
-        {"type": "string", "enum": ["ok", "\u2764"]},  # non-GSM7 enum value
-        {"type": "object", "properties": {f"p{i}": {"type": "string"} for i in range(100)}},
-    ])
+    @pytest.mark.parametrize(
+        "schema",
+        [
+            None,
+            True,
+            False,
+            [],
+            {},
+            {"type": "unknown"},
+            {"type": "string", "enum": "not_a_list"},
+            {"type": "object", "properties": None},
+            {"type": "integer", "minimum": "abc", "maximum": "xyz"},
+            {"$ref": 42},
+            {"oneOf": "not_a_list"},
+            {"type": "string", "pattern": 123},
+            {"type": "string", "enum": ["ok", "\u2764"]},  # non-GSM7 enum value
+            {"type": "object", "properties": {f"p{i}": {"type": "string"} for i in range(100)}},
+        ],
+    )
     def test_never_raises(self, schema):
         result = classify(schema)
         # Must return either a Param or a Refusal, never raise
@@ -344,6 +346,7 @@ class TestTotalityNeverRaises:
         """Requirement 3.6: pattern is never executed at compile time."""
         # A catastrophic-backtracking pattern must not hang
         import time
+
         start = time.monotonic()
         r = classify({"type": "string", "pattern": "^(a+)+$"})
         elapsed = time.monotonic() - start
@@ -366,10 +369,14 @@ class TestClassifyOperation:
         )
 
     def test_all_params_supported(self):
-        draft = self._draft(params=[
-            DraftParam(name="flag", schema={"type": "boolean"}),
-            DraftParam(name="num", schema={"type": "integer", "minimum": 0, "maximum": 10}),
-        ])
+        draft = self._draft(
+            params=[
+                DraftParam(name="flag", json_schema={"type": "boolean"}),
+                DraftParam(
+                    name="num", json_schema={"type": "integer", "minimum": 0, "maximum": 10}
+                ),
+            ]
+        )
         result = classify_operation(draft)
         assert not isinstance(result, list)
         assert result.id == "op1"
@@ -378,10 +385,12 @@ class TestClassifyOperation:
         assert result.params[1].type == ParamType.NUMERIC
 
     def test_one_refused_excludes_whole_operation(self):
-        draft = self._draft(params=[
-            DraftParam(name="ok", schema={"type": "boolean"}),
-            DraftParam(name="bad", schema={"type": "string"}),  # free text
-        ])
+        draft = self._draft(
+            params=[
+                DraftParam(name="ok", json_schema={"type": "boolean"}),
+                DraftParam(name="bad", json_schema={"type": "string"}),  # free text
+            ]
+        )
         result = classify_operation(draft)
         assert isinstance(result, list)
         assert len(result) == 1
@@ -389,26 +398,33 @@ class TestClassifyOperation:
         assert result[0].op_id == "op1"
 
     def test_too_many_required_params_refused(self):
-        draft = self._draft(params=[
-            DraftParam(name=f"p{i}", schema={"type": "boolean"}, required=True)
-            for i in range(6)
-        ])
+        draft = self._draft(
+            params=[
+                DraftParam(name=f"p{i}", json_schema={"type": "boolean"}, required=True)
+                for i in range(6)
+            ]
+        )
         result = classify_operation(draft)
         assert isinstance(result, list)
         codes = [r.code for r in result]
         assert RefusalCode.R_TOO_MANY_PARAMS in codes
 
     def test_flat_object_flattened_in_operation(self):
-        draft = self._draft(params=[
-            DraftParam(name="body", schema={
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string", "maxLength": 10},
-                    "flag": {"type": "boolean"},
-                },
-                "required": ["name"],
-            }),
-        ])
+        draft = self._draft(
+            params=[
+                DraftParam(
+                    name="body",
+                    json_schema={
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string", "maxLength": 10},
+                            "flag": {"type": "boolean"},
+                        },
+                        "required": ["name"],
+                    },
+                ),
+            ]
+        )
         result = classify_operation(draft)
         assert not isinstance(result, list)
         assert len(result.params) == 2
@@ -417,7 +433,7 @@ class TestClassifyOperation:
 
     def test_write_kind(self):
         draft = self._draft(
-            params=[DraftParam(name="flag", schema={"type": "boolean"})],
+            params=[DraftParam(name="flag", json_schema={"type": "boolean"})],
             kind="write",
         )
         result = classify_operation(draft)
@@ -429,12 +445,16 @@ class TestClassifyApp:
     def test_mixed_compiled_and_refused(self):
         drafts = [
             DraftOperation(
-                id="list_clinics", title="List clinics", kind="read",
-                params=[DraftParam(name="flag", schema={"type": "boolean"})],
+                id="list_clinics",
+                title="List clinics",
+                kind="read",
+                params=[DraftParam(name="flag", json_schema={"type": "boolean"})],
             ),
             DraftOperation(
-                id="broken", title="Broken", kind="read",
-                params=[DraftParam(name="text", schema={"type": "string"})],
+                id="broken",
+                title="Broken",
+                kind="read",
+                params=[DraftParam(name="text", json_schema={"type": "string"})],
             ),
         ]
         app, report = classify_app(drafts)
@@ -447,8 +467,10 @@ class TestClassifyApp:
     def test_all_refused(self):
         drafts = [
             DraftOperation(
-                id="broken", title="Broken", kind="read",
-                params=[DraftParam(name="text", schema={"type": "string"})],
+                id="broken",
+                title="Broken",
+                kind="read",
+                params=[DraftParam(name="text", json_schema={"type": "string"})],
             ),
         ]
         app, report = classify_app(drafts)
@@ -460,15 +482,26 @@ class TestClassifyApp:
         """Requirement 4.2: report must have per-code table, not just a percentage."""
         drafts = [
             DraftOperation(
-                id="free", title="Free", kind="read",
-                params=[DraftParam(name="t", schema={"type": "string"})],
+                id="free",
+                title="Free",
+                kind="read",
+                params=[DraftParam(name="t", json_schema={"type": "string"})],
             ),
             DraftOperation(
-                id="nested", title="Nested", kind="read",
-                params=[DraftParam(name="o", schema={
-                    "type": "object",
-                    "properties": {"inner": {"type": "object", "properties": {"x": {"type": "string"}}}}
-                })],
+                id="nested",
+                title="Nested",
+                kind="read",
+                params=[
+                    DraftParam(
+                        name="o",
+                        json_schema={
+                            "type": "object",
+                            "properties": {
+                                "inner": {"type": "object", "properties": {"x": {"type": "string"}}}
+                            },
+                        },
+                    )
+                ],
             ),
         ]
         _, report = classify_app(drafts)
@@ -482,12 +515,16 @@ class TestClassifyApp:
         """Requirement 3.4 / P13: refused op ids absent from IR operations."""
         drafts = [
             DraftOperation(
-                id="good", title="Good", kind="read",
-                params=[DraftParam(name="flag", schema={"type": "boolean"})],
+                id="good",
+                title="Good",
+                kind="read",
+                params=[DraftParam(name="flag", json_schema={"type": "boolean"})],
             ),
             DraftOperation(
-                id="bad", title="Bad", kind="read",
-                params=[DraftParam(name="t", schema={"type": "string"})],
+                id="bad",
+                title="Bad",
+                kind="read",
+                params=[DraftParam(name="t", json_schema={"type": "string"})],
             ),
         ]
         app, _ = classify_app(drafts)

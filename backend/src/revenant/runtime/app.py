@@ -15,10 +15,10 @@ import hmac
 import logging
 from typing import Any, Protocol
 
-from fastapi import FastAPI, Form, Request, Response
+from fastapi import FastAPI, Request, Response
 from fastapi.responses import PlainTextResponse
 
-from .machine import replay, step, render_response, get_screen, END_PREFIX, CON_PREFIX
+from .machine import get_screen, replay
 from .redact import setup_redaction
 
 logger = logging.getLogger("revenant.runtime")
@@ -68,7 +68,7 @@ def build_router(
     ``engine`` is a SQLAlchemy engine (in-memory SQLite if omitted). The app
     exposes ``app.state.service``, ``app.state.engine`` and ``app.state.worker``.
     """
-    from .service import Deployment, UssdService, ERROR_MSG
+    from .service import ERROR_MSG, Deployment, UssdService
     from .sms import EmulatorSms
     from .store import MsisdnCodec, create_all, make_engine
     from .worker import SmsWorker
@@ -130,7 +130,6 @@ def build_emulator_router(bundle: dict[str, Any]) -> Any:
 
     @app.post("/emulator/input")
     async def emulator_input(request: Request) -> dict[str, Any]:
-        import json
         body = await request.json()
         text = body.get("text", "")
         state_id, invalid_count = replay(machine_data, text)
@@ -140,6 +139,7 @@ def build_emulator_router(bundle: dict[str, Any]) -> Any:
             return {"type": "END", "text": "Too many invalid inputs."}
 
         from ..compiler.planner import TERMINAL_KINDS
+
         states = machine_data["states"]
         state = states.get(state_id)
         if state is None:
