@@ -38,9 +38,11 @@ Prerequisite: `state-machine-validators` tasks 1-12 done (validators exist). One
 - [x] 11. Honest reporting
   - Report fields `annotator`, `cached`, `fallback_reason`, `kiro_model`, `transcript_path`.
   - _Requirements: 5.4_
-- [ ] 12. KEY: smoke script
+- [x] 12. KEY: smoke script
   - `scripts/kiro_smoke.sh` running the headless command against the clinic draft; skips cleanly without `KIRO_API_KEY`; writes transcript to `.kiro/evidence/`.
+  - Evidence: `.kiro/evidence/smoke-20261116T072917Z/` (kiro-cli, exit 0, not cached). Earlier failed attempt `smoke-20261115T172131Z/` kept.
   - _Requirements: 3.2_
-- [ ] 13. KEY: adversarial spec through the real path
+- [x] 13. KEY: adversarial spec through the real path
   - Spec with injection text in descriptions; assert operation set unchanged; commit transcript and fill `.kiro/evidence/README.md`.
+  - Evidence: `adversarial-20261116T182818Z/` (descriptions; weak, they barely reach the agent) and `adversarial2-20261116T183000Z/` (injection in enum value, path, title). Both kiro-cli, exit 0, operation set unchanged. One run each; the merge step, not Kiro, is what prevents added operations.
   - _Requirements: 6.1_
