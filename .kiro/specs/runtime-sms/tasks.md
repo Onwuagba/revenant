@@ -57,7 +57,7 @@ Prerequisite: `state-machine-validators` tasks 1-12. One task at a time.
 - [x] 16. No-LLM integration run and retention purge
   - Run the integration suite with LLM env vars unset; purge job tests for sessions and sms rows.
   - _Requirements: 1.5, 6.1_
-- [ ]* 17. Stateful PBT (optional)
+- [x] 17. Stateful PBT (optional)
   - `RuleBasedStateMachine` of random key presses against a compiled bundle. Cut-list item 9: build last, only if time remains.
 
 ## Task Dependency Graph
