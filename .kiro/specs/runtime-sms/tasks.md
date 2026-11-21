@@ -1,6 +1,12 @@
-# Tasks: runtime and SMS
+# Implementation Plan: runtime and SMS
+
+## Overview
+
+Runtime library for serving USSD callbacks and the SMS fallback: redaction, pure step/replay, the callback route, sessions and dedupe, upstream actions, PIN safety, lockout, and the SMS outbox and worker. No LLM in the per-screen path.
 
 Prerequisite: `state-machine-validators` tasks 1-12. One task at a time.
+
+## Tasks
 
 - [x] 1. Redaction filter
   - `redact.py` logging filter dropping `text`, `pin`, `password`, `token`, `authorization`; unit tests for dict, extra fields and exception text.
@@ -53,3 +59,52 @@ Prerequisite: `state-machine-validators` tasks 1-12. One task at a time.
   - _Requirements: 1.5, 6.1_
 - [ ]* 17. Stateful PBT (optional)
   - `RuleBasedStateMachine` of random key presses against a compiled bundle. Cut-list item 9: build last, only if time remains.
+
+## Task Dependency Graph
+
+Task numbers refer to the list above. An arrow means "needs the earlier task first".
+
+```mermaid
+graph TD
+  T1[1 Redaction] --> T4[4 Callback route]
+  T2[2 Step and replay] --> T3[3 P8]
+  T2 --> T4
+  T2 --> T17[17 Stateful PBT]
+  T4 --> T17
+  T4 --> T5[5 Migration]
+  T5 --> T6[6 Session dedupe]
+  T6 --> T7[7 Actions]
+  T7 --> T8[8 Slot sanitisation]
+  T7 --> T9[9 PIN final input]
+  T9 --> T10[10 Canary PIN and P9]
+  T9 --> T11[11 Lockout]
+  T7 --> T12[12 SMS outbox]
+  T12 --> T13[13 SMS worker]
+  T12 --> T14[14 AT provider]
+  T12 --> T15[15 P11]
+  T10 --> T16[16 No-LLM run and purge]
+  T13 --> T16
+```
+
+Waves (tasks in a wave have no dependency on each other and can run together):
+
+```json
+{
+  "waves": [
+    { "id": 0, "tasks": ["1", "2"] },
+    { "id": 1, "tasks": ["3", "4"] },
+    { "id": 2, "tasks": ["5", "17"] },
+    { "id": 3, "tasks": ["6"] },
+    { "id": 4, "tasks": ["7"] },
+    { "id": 5, "tasks": ["8", "9", "12"] },
+    { "id": 6, "tasks": ["10", "11", "13", "14", "15"] },
+    { "id": 7, "tasks": ["16"] }
+  ]
+}
+```
+
+## Notes
+
+- Property tests carry `@pytest.mark.pbt` and are named `test_P<n>_<short_name>` (see `.kiro/steering/testing.md`).
+- Task 17 is optional (cut-list item 9). Never weaken a property to make it pass; report the counterexample and fix the code.
+- Requirement references point to `requirements.md` in this folder.
