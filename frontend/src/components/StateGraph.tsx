@@ -15,8 +15,11 @@ function layout(b: Bundle) {
       depth[dest] = depth[id] + 1; queue.push(dest);
     }
   }
+  // States nothing leads to (e.g. the global error exit) go in the column after the deepest reached one;
+  // a fixed far-away column made fitView zoom out to nothing and show an empty canvas.
+  const lastColumn = Math.max(...Object.values(depth)) + 1;
   const rows: Record<number, string[]> = {};
-  for (const id of Object.keys(states)) (rows[depth[id] ?? 99] ||= []).push(id);
+  for (const id of Object.keys(states)) (rows[depth[id] ?? lastColumn] ||= []).push(id);
   const nodes: Node[] = []; const edges: Edge[] = [];
   Object.entries(rows).forEach(([d, ids]) => ids.sort().forEach((id, i) => {
     nodes.push({ id, position: { x: Number(d) * 230, y: i * 80 }, data: { label: `${id}\n(${states[id].kind})` },
@@ -51,7 +54,7 @@ export default function StateGraph({ bundle, onSelect }: { bundle: Bundle; onSel
         </ul>
       ) : (
         <div style={{ height: 420, border: "1px solid var(--line)", borderRadius: 8 }} aria-label="State graph canvas">
-          <ReactFlow nodes={g.nodes} edges={g.edges} fitView onNodeClick={(_, n) => onSelect(n.id)} nodesDraggable={false}>
+          <ReactFlow nodes={g.nodes} edges={g.edges} fitView minZoom={0.1} onNodeClick={(_, n) => onSelect(n.id)} nodesDraggable={false}>
             <Background /><Controls showInteractive={false} />
           </ReactFlow>
         </div>

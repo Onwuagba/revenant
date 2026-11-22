@@ -50,3 +50,19 @@ for (const path of ["/", "/seance/clinic-booking", "/crypt", "/judges", "/login"
     expect(bad.map(v => `${v.id}: ${v.nodes[0]?.target}`)).toEqual([]);
   });
 }
+
+test("state graph puts every state on the canvas (an unreachable error exit must not push the view off-screen)", async ({ page }) => {
+  await page.goto("/crypt/clinic-booking");
+  await page.getByRole("tab", { name: "Reanimate" }).click();
+  const nodes = page.locator(".react-flow__node");
+  await expect(nodes.first()).toBeVisible();
+  const canvas = await page.getByLabel("State graph canvas").boundingBox();
+  const count = await nodes.count();
+  expect(count).toBeGreaterThan(5);
+  let inside = 0;
+  for (let i = 0; i < count; i++) {
+    const b = await nodes.nth(i).boundingBox();
+    if (b && canvas && b.x >= canvas.x - 1 && b.x + b.width <= canvas.x + canvas.width + 1) inside++;
+  }
+  expect(inside).toBe(count);
+});
