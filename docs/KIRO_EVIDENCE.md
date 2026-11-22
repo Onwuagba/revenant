@@ -79,7 +79,10 @@ On 14 Nov the same log shows `hooks.v2.executionDisabledUntrustedWorkspace` (hoo
 In a trusted workspace, the Kiro IDE agent (chat, Autopilot) edited the docstring of
 `backend/src/revenant/compiler/gsm7.py` at 20:41:52. That path matches the `pbt-on-compiler-save` matcher. The IDE
 log records `ContextualHookInvoked` at 20:42:32, 40 s later, and the hook result was returned to the agent. The log
-does not name the hook or show its exit code, so we claim the hook was invoked, not that the tests passed in that run.
+does not name the hook. The Kiro chat names it: the screenshot `hook-firing-20261122/kiro-chat.png` shows the
+agent's `gsm7.py` diff followed by a "Run Command Hook: pbt-on-compiler-save" card.
+Neither the log nor the chat shows the hook's exit code or pytest output, so we claim the hook ran, not that the
+tests passed in that run.
 Before this run the hook command was changed from bare `pytest` (it resolved to a system Python that cannot import
 `revenant`) to `.venv/bin/python -m pytest -m pbt --hypothesis-profile=dev -x`. Run by hand, that command gave
 32 passed, 340 deselected in 34.78 s. Excerpt: `.kiro/evidence/hook-firing-20261122/ide-log-excerpt.txt`.
@@ -97,6 +100,6 @@ Before this run the hook command was changed from bare `pytest` (it resolved to 
 | 2026-11-21 | "Step 3": lint, strict typing, live MCP ingest, verification on generated folders, regression tests | Not recorded (the commit does not say which tool) | commit `Step 3: fix lint ...` | Confirm before the write-up |
 | 2026-11-22 | Deploy: Dockerfile builds console + API, API serves the console, `render.yaml`, tests (5 new) | By hand (an AI coding assistant in the terminal, not the Kiro IDE) | `Dockerfile`, `render.yaml`, `tests/integration/test_console_serving.py`; image built and 7/7 Playwright passed against it | Found and fixed a bug that would have blanked the console (assets were blocked) |
 | 2026-11-22 | Fresh headless run + agent permission denied-action tests | kiro-cli headless | `.kiro/evidence/smoke-20261122T122007Z/`, `denied-action-*` (result.json, excerpt.json) | MCP start-up was too slow under load on two attempts; the forced write was blocked by the `fs_write` deny rule |
-| 2026-11-22 | Hook test: docstring edit to `compiler/gsm7.py` fired `pbt-on-compiler-save` | Kiro IDE agent (chat, Autopilot) | `.kiro/evidence/hook-firing-20261122/ide-log-excerpt.txt` | Hook command fixed first to use `.venv` (by hand, AI coding assistant); hook output not captured |
+| 2026-11-22 | Hook test: docstring edit to `compiler/gsm7.py` fired `pbt-on-compiler-save` | Kiro IDE agent (chat, Autopilot) | `.kiro/evidence/hook-firing-20261122/ide-log-excerpt.txt`, `kiro-chat.png` | Hook command fixed first to use `.venv` (by hand, AI coding assistant); Kiro chat shows "Run Command Hook: pbt-on-compiler-save" (`kiro-chat.png`); hook output not captured |
 
 Write-up checklist: which specs were run in Kiro; which hooks really fired; which headless runs were real vs cached vs fallback; what Kiro could not do; what you wrote by hand.

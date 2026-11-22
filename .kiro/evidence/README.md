@@ -19,7 +19,7 @@ Paste a short log excerpt or screenshot name for each hook that really fired (pb
 
 | Date | Hook | Trigger | What the log shows | Evidence |
 |---|---|---|---|---|
-| 2026-11-22 | `pbt-on-compiler-save` (the only hook whose matcher covers the edited file; the log does not name it) | Kiro IDE agent `str_replace` on `backend/src/revenant/compiler/gsm7.py` at 20:41:52 (docstring change) | `ContextualHookInvoked` at 20:42:32, 40 s after the edit; the result went back to the agent, whose turn ended "Execution succeeded". Exit code and pytest output not captured | `hook-firing-20261122/ide-log-excerpt.txt` |
+| 2026-11-22 | `pbt-on-compiler-save` (named in the Kiro chat: "Run Command Hook: pbt-on-compiler-save" card under the agent's edit) | Kiro IDE agent `str_replace` on `backend/src/revenant/compiler/gsm7.py` at 20:41:52 (docstring change) | `ContextualHookInvoked` at 20:42:32, 40 s after the edit; the result went back to the agent, whose turn ended "Execution succeeded". Exit code and pytest output not captured | `hook-firing-20261122/ide-log-excerpt.txt`, `hook-firing-20261122/kiro-chat.png` |
 
 Not yet observed: `verify-on-spec-change`, `pin-leak-guard`, `docs-drift`.
 
