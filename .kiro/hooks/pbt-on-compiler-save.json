@@ -8,7 +8,7 @@
       "matcher": "backend/src/revenant/compiler/.*\\.py$",
       "action": {
         "type": "command",
-        "command": ".venv/bin/python -m pytest -m pbt --hypothesis-profile=dev -x"
+        "command": "echo \"$(date) pbt-on-compiler-save fired in $PWD\" >> .kiro/hook-debug.log; .venv/bin/python -m pytest -m pbt --hypothesis-profile=dev -x 2>&1 | tee -a .kiro/hook-debug.log"
       },
       "timeout": 300,
       "enabled": true

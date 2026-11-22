@@ -1,0 +1,16 @@
+Sun Nov 22 21:08:22 WAT 2026 pbt-on-compiler-save fired in /Users/kene/Documents/projects/Moi/Hackathon/hackathon-scaffolds/hackathon-projects/revenant
+============================= test session starts ==============================
+platform darwin -- Python 3.12.12, pytest-9.2.0, pluggy-1.7.0
+database: SQLite
+rootdir: /Users/kene/Documents/projects/Moi/Hackathon/hackathon-scaffolds/hackathon-projects/revenant
+plugins: hypothesis-6.170.15, anyio-4.16.0
+collected 372 items / 340 deselected / 32 selected
+
+tests/pbt/test_menu_pagination_pbt.py ...                                [  9%]
+tests/pbt/test_pbt.py .......                                            [ 31%]
+tests/pbt/test_runtime_pbt.py ........                                   [ 56%]
+tests/pbt/test_runtime_stateful_pbt.py .                                 [ 59%]
+tests/pbt/test_state_machine_pbt.py ............                         [ 96%]
+tests/unit/test_annotate.py .                                            [100%]
+
+===================== 32 passed, 340 deselected in 45.26s ======================

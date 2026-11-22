@@ -1,4 +1,4 @@
-"""GSM 03.38 (GSM-7) character set tables and checks for USSD and SMS text.
+"""GSM 03.38 (GSM-7) character set tables and checks used for USSD and SMS text.
 
 Minimal implementation for the classifier; expanded with full transliteration
 and slot sanitisation in the state-machine-validators spec (render.py).
