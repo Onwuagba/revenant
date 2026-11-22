@@ -1,0 +1,15 @@
+# Kiro IDE output log, 2026-11-22 (local time). Excerpt; the absolute repo path is shortened to <repo>.
+# Context: the Kiro IDE agent (chat, Autopilot) was asked to add a one-line docstring change to
+# backend/src/revenant/compiler/gsm7.py. That path matches the matcher of the pbt-on-compiler-save hook
+# (backend/src/revenant/compiler/.*\.py$). The hook's command: .venv/bin/python -m pytest -m pbt --hypothesis-profile=dev -x
+# The log does not name the hook and does not show its exit code or pytest output.
+
+2026-11-22 20:41:47.823 [info] agent_controller.triggered {"agentType":"chat-agent","autonomyMode":"Autopilot","modelId":"auto"}
+2026-11-22 20:41:47.823 [info] [ACPEventAdapter] Execution began {"executionId":"2d530a68-1414-4f1d-baaa-2defe7a1c746"}
+2026-11-22 20:41:52.130 [info] acp.policy-eval.complete {"toolId":"str_replace","effect":"allow","capability":"fs_write"}
+2026-11-22 20:41:52.130 [info] [SessionPersistence] Created snapshot 731c6a75 for backend/src/revenant/compiler/gsm7.py in session sess_3d8ad3e2-1ede-428e-929d-5d63edb45d99 (4394 bytes)
+2026-11-22 20:41:52.130 [info] [SessionPersistence] Created snapshot 7ffef61f for backend/src/revenant/compiler/gsm7.py in session sess_3d8ad3e2-1ede-428e-929d-5d63edb45d99 (4430 bytes)
+2026-11-22 20:42:32.707 [warning] [ACPEventAdapter] Tool missing rawInput, falling back to input. {"actionType":"ContextualHookInvoked"}
+2026-11-22 20:42:32.707 [info] [Steering] ExistingFiles: <repo>/backend/src/revenant/compiler/gsm7.py in 2d530a68-1414-4f1d-baaa-2defe7a1c746
+2026-11-22 20:42:32.707 [info] [q-developer-converse] Sending GenerateAssistantResponse modelId=auto agentMode=vibe origin=AI_EDITOR streaming=true conversationId=sess_3d8ad3e2-1ede-428e-929d-5d63edb45d99
+2026-11-22 20:42:35.574 [info] [ACPEventAdapter] Execution succeeded {"executionId":"2d530a68-1414-4f1d-baaa-2defe7a1c746"}

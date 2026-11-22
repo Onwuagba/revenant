@@ -54,7 +54,7 @@ They are **not** evidence that Kiro itself behaves well.
 
 ## How the project was built
 The `.kiro/` specs, steering, hooks and agents are committed. Which tool did what, per the commit history and the
-build log in `KIRO_START_HERE.md` (section 9):
+build log at the end of this file:
 - Specs 4 and 5, the platform API and the console were written outside the Kiro IDE, with an AI coding assistant in the terminal (15 Nov).
 - Kiro headless (`kiro-cli`) ran the compile-time annotation stage for real on 16 Nov (3 runs) and 22 Nov (1 fresh run, see below).
 - Task 17 of runtime-sms (stateful key-press property test) was written by the Kiro IDE agent through "Start task"
@@ -65,13 +65,38 @@ build log in `KIRO_START_HERE.md` (section 9):
   "Step 3" commit); they are listed as "not recorded" in the build log rather than guessed.
 - Deploy files (Dockerfile, `render.yaml`, console served by the API) and the evidence scripts were written with an AI coding assistant in the terminal (22 Nov).
 Hooks: the Kiro IDE log shows all 4 hook files load (`v2 hooks loaded 4 standalone hooks from .kiro/hooks/`), so the file
-format and trigger names are accepted. The IDE log has no line showing a hook firing, so **no hook firing is claimed**.
+format and trigger names are accepted. On 22 Nov the IDE log recorded one hook invocation after a Kiro agent edit (see "Hook firing" below).
 On 14 Nov the same log shows `hooks.v2.executionDisabledUntrustedWorkspace` (hooks do not run in an untrusted workspace).
 
 ## Still to do
 1. ~~Clinic smoke run~~ done 2026-11-16 and again 2026-11-22 (see above). farmer-prices and adversarial runs done 2026-11-16.
 2. ~~Adversarial spec through the real path~~ done (see Runs 2 and 3).
 3. ~~Agent permission rules with a deliberate denied-action test~~ done for `fs_write` (see above). Shell deny not exercised.
-4. Confirm that a hook actually fires in the Kiro IDE (workspace must be trusted): save a file under
-   `backend/src/revenant/compiler/` and look for the `pbt-on-compiler-save` run in the IDE's Agent Hooks panel, then paste
-   the panel text or a screenshot name under "Hook firings". Not done: the hooks only run inside the IDE.
+4. ~~Confirm that a hook actually fires in the Kiro IDE~~ observed 2026-11-22 (see "Hook firing" below). Still open:
+   capture the hook's output (pass/fail) from the Kiro chat or Agent Hooks panel, and observe the other three hooks.
+
+## Hook firing (2026-11-22)
+In a trusted workspace, the Kiro IDE agent (chat, Autopilot) edited the docstring of
+`backend/src/revenant/compiler/gsm7.py` at 20:41:52. That path matches the `pbt-on-compiler-save` matcher. The IDE
+log records `ContextualHookInvoked` at 20:42:32, 40 s later, and the hook result was returned to the agent. The log
+does not name the hook or show its exit code, so we claim the hook was invoked, not that the tests passed in that run.
+Before this run the hook command was changed from bare `pytest` (it resolved to a system Python that cannot import
+`revenant`) to `.venv/bin/python -m pytest -m pbt --hypothesis-profile=dev -x`. Run by hand, that command gave
+32 passed, 340 deselected in 34.78 s. Excerpt: `.kiro/evidence/hook-firing-20261122/ide-log-excerpt.txt`.
+
+## Build log
+| Date | Work item | Tool (Kiro IDE spec task / Kiro chat / kiro-cli headless / by hand) | Evidence (commit, transcript, screenshot) | Notes (what needed fixing by hand) |
+|---|---|---|---|---|
+| 2026-11-15 | Spec 4 runtime-sms: service, store, worker, actions, clinic mock, Alembic | By hand (an AI coding assistant in the terminal, not the Kiro IDE) | commits `Spec 4 ...` | Planner/runtime gaps found: no wildcard input, unreachable menu options 2-5 (fixed) |
+| 2026-11-15 | Spec 5 kiro-compile-step: schema, merge, deterministic annotator, validator MCP, headless runner, cache, repair | By hand (an AI coding assistant in the terminal, not the Kiro IDE) | commit `Spec 5 ...`; fake-kiro tests only | No real Kiro run: no kiro-cli/key available. Tasks 12-13 (KEY) not done |
+| 2026-11-15 | Platform API, console, emulator, CLI, deploy files | By hand (an AI coding assistant in the terminal, not the Kiro IDE) | commits; Playwright smoke 7/7 | Hooks not confirmed in IDE |
+| 2026-11-16 | Real headless runs: clinic smoke, farmer-prices, adversarial injection | kiro-cli headless | `.kiro/evidence/smoke-20261116T072917Z/`, `farmer-prices-*`, `adversarial2-*` (result.json) | See `docs/KIRO_EVIDENCE.md`; no model id in the stream |
+| 2026-11-21 | Ticked kiro-compile-step tasks 12 and 13 against the 16 Nov evidence | By hand (an AI coding assistant in the terminal, not the Kiro IDE) | commit `Tick kiro-compile-step tasks 12 and 13 ...` | Ticked only after checking the evidence folders |
+| 2026-11-21 | runtime-sms `tasks.md` reformatted to Kiro spec format | Not recorded (the commit does not say which tool) | commit `Reformat runtime-sms tasks.md ...` | Confirm before the write-up |
+| 2026-11-21 | Task 17 runtime-sms: stateful key-press property test | Kiro IDE spec task ("Start task") | commit `Task 17 (runtime-sms) ...` (message says written by the Kiro IDE agent) | |
+| 2026-11-21 | "Step 3": lint, strict typing, live MCP ingest, verification on generated folders, regression tests | Not recorded (the commit does not say which tool) | commit `Step 3: fix lint ...` | Confirm before the write-up |
+| 2026-11-22 | Deploy: Dockerfile builds console + API, API serves the console, `render.yaml`, tests (5 new) | By hand (an AI coding assistant in the terminal, not the Kiro IDE) | `Dockerfile`, `render.yaml`, `tests/integration/test_console_serving.py`; image built and 7/7 Playwright passed against it | Found and fixed a bug that would have blanked the console (assets were blocked) |
+| 2026-11-22 | Fresh headless run + agent permission denied-action tests | kiro-cli headless | `.kiro/evidence/smoke-20261122T122007Z/`, `denied-action-*` (result.json, excerpt.json) | MCP start-up was too slow under load on two attempts; the forced write was blocked by the `fs_write` deny rule |
+| 2026-11-22 | Hook test: docstring edit to `compiler/gsm7.py` fired `pbt-on-compiler-save` | Kiro IDE agent (chat, Autopilot) | `.kiro/evidence/hook-firing-20261122/ide-log-excerpt.txt` | Hook command fixed first to use `.venv` (by hand, AI coding assistant); hook output not captured |
+
+Write-up checklist: which specs were run in Kiro; which hooks really fired; which headless runs were real vs cached vs fallback; what Kiro could not do; what you wrote by hand.

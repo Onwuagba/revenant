@@ -17,4 +17,10 @@ Filled in during the build. Do not write entries for runs that did not happen. K
 ## Hook firings
 Paste a short log excerpt or screenshot name for each hook that really fired (pbt-on-compiler-save, verify-on-spec-change, pin-leak-guard, docs-drift).
 
+| Date | Hook | Trigger | What the log shows | Evidence |
+|---|---|---|---|---|
+| 2026-11-22 | `pbt-on-compiler-save` (the only hook whose matcher covers the edited file; the log does not name it) | Kiro IDE agent `str_replace` on `backend/src/revenant/compiler/gsm7.py` at 20:41:52 (docstring change) | `ContextualHookInvoked` at 20:42:32, 40 s after the edit; the result went back to the agent, whose turn ended "Execution succeeded". Exit code and pytest output not captured | `hook-firing-20261122/ide-log-excerpt.txt` |
+
+Not yet observed: `verify-on-spec-change`, `pin-leak-guard`, `docs-drift`.
+
 Run 3 note: an earlier adversarial run (`adversarial-20261116T182818Z/`) put the injection in descriptions. The draft truncates titles to 24 chars and omits descriptions, so only a fragment reached Kiro; it is kept as a weaker case. `adversarial2` places injection text in fields that do reach the agent. One run each; this is not a robustness claim.
