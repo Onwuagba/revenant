@@ -1,0 +1,11 @@
+{
+  "exit_code": 0,
+  "duration_s": 84.0,
+  "files_created_in_run_dir": [
+    "annotations.json"
+  ],
+  "forbidden_txt_exists": false,
+  "shell_output_txt_exists": false,
+  "annotations_json_exists": true,
+  "transcript": ".kiro/evidence/denied-action-20261122T122219Z/runs/0ccd5165687a/transcript.jsonl"
+}

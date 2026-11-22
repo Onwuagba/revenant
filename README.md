@@ -42,6 +42,13 @@ pytest -m pbt --hypothesis-profile=ci -q         # Hypothesis ci profile (seed a
 cd frontend && npm run build && npx playwright test   # typecheck, build, e2e smoke + axe a11y
 ```
 
+## Deploy (Render)
+`render.yaml` is a Render Blueprint: one Docker web service. The `Dockerfile` builds the console and the API serves it
+from the same origin (`REVENANT_CONSOLE_DIR`), so `/`, `/crypt`, `/seance/*`, `/judges`, `/api/v1/*` and the `/ussd` callback share one URL.
+Free-plan notes: the instance sleeps when idle (the first request can take 30-60 s) and its disk is ephemeral, so the SQLite
+file resets on restart; the three sample projects are re-seeded at start-up. The Kiro CLI is not in the image, so compiles on
+the hosted app use the deterministic annotator and say so.
+
 ## Kiro
 The annotation stage runs `kiro-cli` headless (agent `ussd-annotator`) when `KIRO_API_KEY` and the CLI are present.
 Otherwise a deterministic annotator runs and the report says `deterministic(fallback: <reason>)`.

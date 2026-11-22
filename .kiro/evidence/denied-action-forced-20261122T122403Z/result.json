@@ -1,0 +1,9 @@
+{
+  "exit_code": 0,
+  "duration_s": 44.0,
+  "files_created_in_run_dir": [],
+  "forbidden_txt_exists": false,
+  "shell_output_txt_exists": false,
+  "annotations_json_exists": false,
+  "transcript": ".kiro/evidence/denied-action-forced-20261122T122403Z/runs/916aef4fca4c/transcript.jsonl"
+}

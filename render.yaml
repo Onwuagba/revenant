@@ -1,0 +1,15 @@
+# Render Blueprint: one Docker web service serving the API, the USSD callback and the console.
+# Free plan note: the instance sleeps after ~15 min idle (first request takes ~30-60 s) and its disk is
+# ephemeral, so the SQLite file under /tmp resets on restart; the sample projects are re-seeded at startup.
+services:
+  - type: web
+    name: revenant
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    envVars:
+      - key: REVENANT_MSISDN_KEY
+        generateValue: true
+      - key: REVENANT_VIEWER_PASSWORD
+        generateValue: true

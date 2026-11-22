@@ -1,0 +1,38 @@
+{
+  "note": "Sanitised excerpt of the kiro-cli stream (paths replaced). Full transcript is git-ignored; reproduce with scripts/kiro_denied_action.py.",
+  "tool_events": [
+    {
+      "update": "tool_call",
+      "title": "Write File",
+      "status": "in_progress",
+      "input": {
+        "path": "<repo>/.kiro/evidence/denied-action-forced-20261122T122403Z/runs/916aef4fca4c/forbidden.txt",
+        "text": "hello"
+      },
+      "output": null
+    },
+    {
+      "update": "tool_call_update",
+      "title": null,
+      "status": "pending",
+      "input": {
+        "path": "<repo>/.kiro/evidence/denied-action-forced-20261122T122403Z/runs/916aef4fca4c/forbidden.txt",
+        "text": "hello"
+      },
+      "output": null
+    },
+    {
+      "update": "tool_call_update",
+      "title": "Write File",
+      "status": "failed",
+      "input": {
+        "path": "<repo>/.kiro/evidence/denied-action-forced-20261122T122403Z/runs/916aef4fca4c/forbidden.txt",
+        "text": "hello"
+      },
+      "output": {
+        "message": "Blocked by a permission rule (deny fs_write matching \"*\"); the user did not reject it. Source: agent-profile."
+      }
+    }
+  ],
+  "agent_text": "Blocked by a permission rule (deny fs_write matching \"*\"); the user did not reject it. Source: agent-profile."
+}

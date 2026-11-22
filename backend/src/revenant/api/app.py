@@ -22,7 +22,7 @@ from uuid import uuid4
 
 import sqlalchemy as sa
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
@@ -866,4 +866,22 @@ def create_app(
         from .seed import seed_samples
 
         seed_samples(engine, run_compile, events)
+
+    # Single-service deployment (e.g. Render): serve the built console from the same origin.
+    # Registered last so /api, /ussd and /healthz keep priority. Unset locally (Vite serves it).
+    console_dir = os.environ.get("REVENANT_CONSOLE_DIR")
+    if console_dir and Path(console_dir, "index.html").is_file():
+        root = Path(console_dir).resolve()
+
+        @app.get("/{path:path}", include_in_schema=False)
+        def console(path: str) -> FileResponse:
+            if path.startswith(("api/", "ussd/")):
+                raise problem(404, "Not found")
+            candidate = (root / path).resolve()
+            if path and candidate.is_file() and root in candidate.parents:
+                return FileResponse(candidate)
+            if path.startswith("assets/"):
+                raise problem(404, "Not found")  # a missing asset must not be served as HTML
+            return FileResponse(root / "index.html")  # SPA fallback
+
     return app
