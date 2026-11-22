@@ -7,6 +7,8 @@ Operations outside the documented subset are **refused with a code and a reason*
 > USSD runs in our emulator, labelled **simulated handset**. It has not been run on a real handset. The demo upstream
 > and its PIN are a mock.
 
+**Live demo:** https://revenant-st1d.onrender.com (free tier: the first load after idle takes 30-60 s; read-only samples, simulated handset)
+
 ## What is here
 | Piece | Where |
 |---|---|
