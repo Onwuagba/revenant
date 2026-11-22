@@ -21,17 +21,30 @@ Operations outside the documented subset are **refused with a code and a reason*
 | Generated sample apps | `generated/clinic-booking`, `generated/farmer-prices` |
 | Kiro specs, steering, hooks, agents | `.kiro/` (committed on purpose) |
 
-## Run it
+## Run it (one command)
+Needs Docker with Compose v2. From the repo root:
+```bash
+docker compose up --build
+```
+Open http://localhost:8000/seance/clinic-booking, press Dial, and book (clinic `c1`, slot `s1`, confirm `1`, demo PIN `2468`).
+This starts PostgreSQL 16 and one app container (API, AT-shaped `/ussd` callback and the built console on one origin).
+The three sample projects are compiled at start-up with the deterministic annotator. Data persists in a Docker volume;
+`docker compose down -v` removes it. Optional settings go in `.env` (copy `.env.example`; empty values use the defaults).
+The compose file is for local use: plain HTTP, no database password, cookies without `Secure`.
+
+## Run it for development
 ```bash
 python3.12 -m venv .venv && source .venv/bin/activate
-pip install -e "backend[dev,web,mcp]"
-REVENANT_INSECURE_COOKIES=1 uvicorn revenant.api.main:app --port 8765     # API + AT-facing /ussd route
-cd frontend && npm install && REVENANT_API=http://127.0.0.1:8765 npm run dev   # console on :5173
+pip install -c backend/constraints.txt -e "backend[dev,web,mcp]"
+REVENANT_INSECURE_COOKIES=1 uvicorn revenant.api.main:app --port 8765     # API + /ussd route (SQLite, in a temp file)
 ```
-Open `/seance/clinic-booking`, press Dial, and book (clinic `c1`, slot `s1`, confirm `1`, demo PIN `2468`).
+In a second terminal:
+```bash
+cd frontend && npm install && REVENANT_API=http://127.0.0.1:8765 npm run dev   # console on http://127.0.0.1:5173
+```
 `REVENANT_INSECURE_COOKIES=1` is for local HTTP only; production keeps `Secure` cookies.
 
-CLI:
+CLI (in the venv):
 ```bash
 revenant verify examples/specs                  # compile + validate; exit 1 on any violation
 revenant compile examples/specs/clinic.openapi.yaml --out generated/clinic-booking
@@ -39,10 +52,18 @@ revenant compile examples/specs/clinic.openapi.yaml --out generated/clinic-booki
 
 ## Tests
 ```bash
-pytest tests -q                                  # unit, property-based, integration
+pytest tests -q                                  # unit, property-based, integration (SQLite)
 pytest -m pbt --hypothesis-profile=ci -q         # Hypothesis ci profile (seed and counts are printed by the run)
+ruff check --config backend/pyproject.toml backend/src tests && (cd backend && mypy)   # lint, strict types
 cd frontend && npm run build && npx playwright test   # typecheck, build, e2e smoke + axe a11y
 ```
+Same suite on PostgreSQL 16 (each test gets a fresh database, dropped at the end):
+```bash
+docker run --rm -d --name revenant-pg -e POSTGRES_HOST_AUTH_METHOD=trust -p 127.0.0.1:5433:5432 postgres:16-alpine
+REVENANT_TEST_PG_URL=postgresql+psycopg://postgres@127.0.0.1:5433/postgres pytest tests -q
+docker stop revenant-pg
+```
+Playwright against the compose stack instead of a dev server: `E2E_BASE_URL=http://localhost:8000 npx playwright test`.
 
 ## Deploy (Render)
 `render.yaml` is a Render Blueprint: one Docker web service. The `Dockerfile` builds the console and the API serves it

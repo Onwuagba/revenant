@@ -1,8 +1,6 @@
+# Optional TLS front for a single server. Not used by the root docker-compose.yml (local, plain HTTP).
+# The app container serves the API, the /ussd callback and the console on one origin, so Caddy only
+# proxies. Run Caddy next to the `app` service and set REVENANT_HOST to your domain.
 {$REVENANT_HOST} {
-	handle /api/* { reverse_proxy api:8000 }
-	handle /ussd/* { reverse_proxy api:8000 }
-	handle /healthz { reverse_proxy api:8000 }
-	handle { root * /srv/console
-		try_files {path} /index.html
-		file_server }
+	reverse_proxy app:8000
 }
