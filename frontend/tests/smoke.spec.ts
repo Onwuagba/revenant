@@ -32,6 +32,15 @@ test("crypt sample is read-only and shows Last Rites", async ({ page }) => {
   await expect(page.getByText("deterministic").first()).toBeVisible();
 });
 
+test("fully refused sample lists each buried operation with its refusal code", async ({ page }) => {
+  await page.goto("/crypt/unsupported-demo");
+  await expect(page.getByRole("heading", { name: "Buried" })).toBeVisible();
+  for (const code of ["R_DATETIME", "R_NESTED_OBJECT", "R_FREE_TEXT", "R_BINARY", "R_POLYMORPHIC"]) {
+    await expect(page.locator("code", { hasText: code })).toHaveCount(1);
+  }
+  await expect(page.getByText("Every operation was refused; no bundle was produced.")).toBeVisible();
+});
+
 for (const path of ["/", "/seance/clinic-booking", "/crypt", "/judges", "/login"]) {
   test(`a11y: no serious violations on ${path}`, async ({ page }) => {
     await page.goto(path);

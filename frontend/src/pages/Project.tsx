@@ -54,7 +54,9 @@ function Exhume({ pid, runs, canEdit, onStarted }: { pid: string; runs: { id: st
   const report = useQuery({
     queryKey: ["report-of-run", run.data?.bundle_id], queryFn: () => api.report(run.data!.bundle_id!), enabled: !!run.data?.bundle_id,
   });
-  const refusals = report.data?.refusals ?? [];
+  // A run that refused every operation has no bundle (so no report); fall back to the refusals stored with the run.
+  const refusals: { op_id: string; path: string; code: string; message?: string; hint?: string }[] =
+    report.data?.refusals ?? run.data?.refusals ?? [];
   return (
     <>
       {canEdit ? (

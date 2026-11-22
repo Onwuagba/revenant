@@ -623,6 +623,21 @@ def create_app(
     @app.get("/api/v1/compile-runs/{rid}")
     def get_run(rid: str, user: dict | None = Depends(current_user)) -> dict[str, Any]:
         r = _run_for(rid, user)
+        with engine.connect() as c:
+            refused = (
+                c.execute(
+                    sa.select(
+                        m.refusals.c.op_id,
+                        m.refusals.c.path,
+                        m.refusals.c.code,
+                        m.refusals.c.message,
+                    )
+                    .where(m.refusals.c.run_id == rid)
+                    .order_by(m.refusals.c.id)
+                )
+                .mappings()
+                .all()
+            )
         return {
             "id": r["id"],
             "status": r["status"],
@@ -631,6 +646,8 @@ def create_app(
             "error": r["error"],
             "bundle_id": r["bundle_id"],
             "log": json.loads(r["log"]),
+            # No bundle exists when every operation was refused, so the run carries its refusals.
+            "refusals": [dict(x) for x in refused],
         }
 
     @app.get("/api/v1/compile-runs/{rid}/events")

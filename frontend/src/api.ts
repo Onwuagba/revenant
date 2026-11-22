@@ -5,7 +5,8 @@ export interface RunSummary { id: string; status: string; stage: string; annotat
 export interface BundleSummary { id: string; version: number; status: string; bundle_hash: string }
 export interface ProjectDetail extends Project { runs: RunSummary[]; bundles: BundleSummary[] }
 export interface RunEvent { event: string; data: Record<string, unknown>; t: number }
-export interface Run extends RunSummary { error: string; log: RunEvent[] }
+export interface RunRefusal { op_id: string; path: string; code: string; message: string }
+export interface Run extends RunSummary { error: string; log: RunEvent[]; refusals?: RunRefusal[] }
 export interface State {
   id: string; kind: string; op_id: string; title: string; transitions: Record<string, string>;
   template: string; static_len: number; worst_case_len: number; options: string[];
