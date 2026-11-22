@@ -154,10 +154,16 @@ def plan(app: App, refused_op_ids: set[str] | None = None) -> Machine:
         )
         return machine
 
-    # Build each op's flow, record entry state id
+    # Decide the root and the menu page listing each op before building flows, so back (0)
+    # returns to that page and "No" on a confirm goes to the real root (root_p0 when paged).
+    paged = len(ops) > MAX_ROOT_ENTRIES
+    machine.root = "root_p0" if paged else "root"
+    menu_of = {
+        op.id: (f"root_p{i // ITEMS_PER_PAGE}" if paged else "root") for i, op in enumerate(ops)
+    }
     entry_ids: dict[str, str] = {}
     for op in ops:
-        entry_ids[op.id] = _build_op_flow(machine, op)
+        entry_ids[op.id] = _build_op_flow(machine, op, menu_of[op.id])
 
     # Build root menu
     _build_root_menu(machine, ops, entry_ids)
@@ -219,7 +225,7 @@ def _build_paginated_root(machine: Machine, ops: list[Operation], entry_ids: dic
     return first_page
 
 
-def _build_op_flow(machine: Machine, op: Operation) -> str:
+def _build_op_flow(machine: Machine, op: Operation, menu: str) -> str:
     """Build the state flow for one operation. Returns the first state id."""
     leaf = op.leaf_params()
     pin_params = [p for p in leaf if p.type == ParamType.PIN]
@@ -239,7 +245,7 @@ def _build_op_flow(machine: Machine, op: Operation) -> str:
 
     for i, (sid, kind, pname) in enumerate(flow):
         # prev = root for the first state, otherwise the previous state
-        prev = root if i == 0 else flow[i - 1][0]
+        prev = menu if i == 0 else flow[i - 1][0]
         state = State(id=sid, kind=kind, op_id=op.id, param_name=pname, title=op.title, prev=prev)
         if i < len(flow) - 1:
             nxt = flow[i + 1][0]

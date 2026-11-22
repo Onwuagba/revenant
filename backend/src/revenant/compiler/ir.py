@@ -117,7 +117,8 @@ class ResultField(BaseModel):
 
     path: str
     label: str
-    max_len: int = 40
+    #: Longest value the field can hold, from the schema (None = unbounded; V7 flags it).
+    max_len: int | None = None
 
 
 class Result(BaseModel):
@@ -125,6 +126,8 @@ class Result(BaseModel):
 
     shape: ResultShape = ResultShape.TEXT
     fields: list[ResultField] = Field(default_factory=list)
+    #: For list results, the schema's maxItems (None = unbounded; V7 flags it).
+    max_items: int | None = None
     template: str = ""
     sms_template: str = ""
 

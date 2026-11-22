@@ -157,3 +157,21 @@ def test_each_mutation_is_caught(name):
         "pin_echo": lambda: setattr(m.states["bpay__pin"], "slots", [Slot(name="p", max_len=6)]),
     }[name]()
     assert _flagged(m) != []
+
+
+def test_unbounded_result_field_flags_only_sms():
+    """V7 mutation: a result field loses its bound; only V7 may fire (needs the IR ops)."""
+    from revenant.compiler.ir import Operation, Result, ResultField, ResultShape
+
+    m = _bundle()
+    ops = [
+        Operation(
+            id="aread",
+            title="Read",
+            result=Result(
+                shape=ResultShape.RECORD, fields=[ResultField(path="v", label="v", max_len=None)]
+            ),
+        )
+    ]
+    flagged = sorted(r.validator for r in run_all(m, ops, set()) if not r.passed)
+    assert flagged == ["V7_sms"]

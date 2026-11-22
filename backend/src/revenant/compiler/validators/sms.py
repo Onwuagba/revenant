@@ -1,31 +1,52 @@
-"""V7 SMS fallback: result sms_template worst case <= segment budget;
-contains all declared result fields (lossless) or compile refuses."""
+"""V7 SMS fallback (state-machine-validators requirement 3.7, runtime 5.4, property P11).
+
+For every compiled operation, build the longest result text the runtime can send (via the shared
+formatter in ``compiler/results.py``) and check it:
+
+- every declared result field has a bound and a list result has ``maxItems``;
+- the worst case fits ``carrier_profile.sms_segments`` (160 septets single, 153 concatenated);
+- every declared result field appears in it (lossless).
+
+Text-shaped results (no declared fields) are cut to the budget at runtime with ``...``; that is
+the documented lossy path and is not a violation.
+"""
 
 from __future__ import annotations
 
-from ..gsm7 import septet_count
+from typing import Any
+
+from ..ir import Operation
 from ..planner import Machine, StateKind
+from ..results import check_operation
 from . import ValidationResult, Violation
 
 SINGLE_SEGMENT = 160
 CONCAT_SEGMENT = 153
 
 
-def validate_sms(machine: Machine) -> ValidationResult:
-    """V7: check SMS_END states and any result that would need SMS fallback."""
+def validate_sms(machine: Machine, ir_ops: list[Any] | None = None) -> ValidationResult:
+    """V7: worst-case SMS per operation within the segment budget and lossless."""
     violations: list[Violation] = []
-
-    for sid in sorted(machine.states):
-        state = machine.states[sid]
-        if state.kind != StateKind.SMS_END:
+    segments = machine.carrier_profile.sms_segments
+    ops = [o if isinstance(o, Operation) else Operation.model_validate(o) for o in ir_ops or []]
+    result_states = {
+        s.op_id: sid
+        for sid, s in machine.states.items()
+        if s.kind in (StateKind.RESULT_END, StateKind.SMS_END) and s.op_id
+    }
+    for op in sorted(ops, key=lambda o: o.id):
+        if op.id in machine.refused_op_ids:
             continue
-        # SMS_END states are expected; check their template is short enough
-        # The actual SMS body is checked at compile time against the segment budget
-        # Here we just verify the SMS_END state exists and is a valid terminal
-        pass
-
-    # Verify no RESULT_END state exceeds the budget (renderer should have
-    # converted them to SMS_END; if any remain, that's a violation)
+        for message, measured in check_operation(op, segments):
+            violations.append(
+                Violation(
+                    validator="V7_sms",
+                    state_id=result_states.get(op.id, op.id),
+                    message=f"{op.id}: {message}",
+                    measured=measured,
+                )
+            )
+    # A screen result that does not fit must have been turned into SMS_END by the renderer.
     max_chars = machine.carrier_profile.max_chars
     for sid in sorted(machine.states):
         state = machine.states[sid]
@@ -34,23 +55,17 @@ def validate_sms(machine: Machine) -> ValidationResult:
                 Violation(
                     validator="V7_sms",
                     state_id=sid,
-                    message=f"RESULT_END state {sid} exceeds screen budget but was not "
+                    message=f"RESULT_END state {sid} exceeds the screen budget but was not "
                     "converted to SMS_END",
                     measured=state.worst_case_len,
                 )
             )
-
     return ValidationResult("V7_sms", len(violations) == 0, violations)
 
 
 def check_sms_budget(body: str, max_segments: int) -> tuple[bool, int]:
-    """Check if an SMS body fits within the segment budget.
+    """Check if an SMS body fits within the segment budget. Returns (fits, segment_count)."""
+    from ..results import segment_count
 
-    Returns (fits, segment_count). Single segment = 160 septets,
-    concatenated segments = 153 septets each.
-    """
-    count = septet_count(body)
-    if count <= SINGLE_SEGMENT:
-        return True, 1
-    segments = (count + CONCAT_SEGMENT - 1) // CONCAT_SEGMENT
+    segments = segment_count(body)
     return segments <= max_segments, segments

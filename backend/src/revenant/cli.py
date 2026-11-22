@@ -41,7 +41,11 @@ def _verify_generated(path: Path) -> int:
     if bundle_hash(hashed) != stored:
         problems.append("bundle_hash does not match bundle.json contents")
     machine = Machine.model_validate(bundle["machine"])
-    results = run_all(machine, None, set(bundle["machine"].get("refused_op_ids", [])))
+    results = run_all(
+        machine,
+        bundle.get("ir", {}).get("operations", []),
+        set(bundle["machine"].get("refused_op_ids", [])),
+    )
     failed = [r for r in results if not r.passed]
     for r in failed:
         for v in r.violations:

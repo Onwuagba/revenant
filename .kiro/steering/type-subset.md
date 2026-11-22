@@ -20,7 +20,7 @@ Source of truth: `architecture/IR_AND_TYPE_SUBSET.md`. Keep this file in sync wi
 | flat object (one level, <=6 scalar props) | flattened into sequential prompts |
 | required params per flow | <=5 |
 
-Outputs: scalar/flat record -> template with slot budgets (fits -> END, else SMS); list of flat records -> top-K per page, rest via SMS; MCP text -> short on screen, long via SMS; 202/async/slow -> END "We will SMS you" + job.
+Outputs: scalar/flat record -> `label: value` lines, every field bounded (maxLength/enum/number/boolean/fixed format), fits -> END else SMS; list of flat records -> needs `maxItems`, whole list on screen if it fits else by SMS (no on-screen paging in v1); MCP text -> short on screen, long via SMS cut to the segment budget with `...`; 202/async/slow -> END "We will SMS you" + job. V7 checks the worst case against `sms_segments`; an unbounded list or field is a V7 violation, not a new refusal code.
 
 ## Refusal codes (always reported, never silently dropped)
 `R_NESTED_OBJECT` object in object or array of objects as input | `R_POLYMORPHIC` oneOf/anyOf/allOf with differing shapes, discriminator | `R_FREE_TEXT` string without enum/pattern/maxLength<=20 and no `x-revenant-interpret` | `R_DATETIME` date-time, time, duration, or date without window | `R_UNBOUNDED_NUMBER` number without min and max | `R_TOO_MANY_PARAMS` exceeds step cap | `R_BINARY` binary/byte/multipart | `R_AUTH_SCHEME` per-user OAuth/OIDC | `R_CALLBACK` webhooks/callbacks/streaming | `R_NON_GSM7` cannot transliterate | `R_REF_UNRESOLVED` remote `$ref` blocked or missing | `R_RECURSIVE` cyclic schema.

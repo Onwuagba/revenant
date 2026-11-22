@@ -16,8 +16,9 @@ from typing import Any
 
 import sqlalchemy as sa
 
-from ..compiler.gsm7 import sanitise_slot
+from ..compiler.gsm7 import sanitise_slot, septet_count
 from ..compiler.planner import TERMINAL_KINDS
+from ..compiler.results import format_items, septet_budget, truncate_to_septets
 from .actions import ActionOutcome, ActionResult, call_upstream
 from .machine import CON_PREFIX, END_PREFIX, Trace, get_screen, replay_full
 from .redact import setup_redaction
@@ -27,8 +28,10 @@ from .store import MsisdnCodec, OptionCache, PinGuard, SessionStore
 logger = logging.getLogger("revenant.runtime")
 setup_redaction(logger)
 
-#: Screen budget including the CON/END prefix (carrier profile default).
+#: Screen budget including the CON/END prefix when a bundle carries no carrier profile.
 SCREEN_BUDGET = 182
+#: SMS segment budget when a bundle carries no carrier profile.
+SMS_SEGMENTS = 3
 
 BAD_PIN_MSG = "Could not complete the request. Check your PIN and try again later."
 ERROR_MSG = "Service is unavailable. Try again later."
@@ -42,7 +45,6 @@ class Deployment:
     slug: str
     bundle: dict[str, Any]
     upstream_base: str = ""
-    sms_budget_segments: int = 3
     http_client: Any = None  # per-deployment upstream client (tests/demo use ASGI mocks)
     mcp_call: Any = None  # async (tool, args) -> Any for MCP-sourced operations
 
@@ -180,31 +182,40 @@ class UssdService:
             self._queue_sms(dep, msisdn, mh, "Your request is being processed. We will update you.")
             return END_PREFIX + SMS_MSG, "sms_slow"
 
+        profile = dep.bundle.get("machine", {}).get("carrier_profile", {})
+        screen_budget = int(profile.get("max_chars") or SCREEN_BUDGET)
+        sms_septets = septet_budget(int(profile.get("sms_segments") or SMS_SEGMENTS))
         fields = op["result"]["fields"]
         data = result.data
         if not fields:  # text-shaped result (e.g. MCP tool without outputSchema)
-            txt = sanitise_slot(_dig(data, "text") if isinstance(data, dict) else str(data), 400)
-            fields = []
-            data = {"_t": txt}
-            lines = [txt]
+            if isinstance(data, list):  # one line per item; each line sanitised on its own
+                txt = "\n".join(sanitise_slot(str(x), len(str(x)) + 1) for x in data)
+            else:
+                raw = _dig(data, "text") if isinstance(data, dict) else str(data)
+                txt = sanitise_slot(raw, len(raw) + 1)
             screen = END_PREFIX + txt
-            if len(screen) <= SCREEN_BUDGET:
+            if len(screen) <= screen_budget and result.outcome != ActionOutcome.LONG:
                 return screen, "result"
-            self._queue_sms(dep, msisdn, mh, txt)
+            # Documented lossy path: text results longer than the SMS budget end with "...".
+            self._queue_sms(dep, msisdn, mh, truncate_to_septets(txt, sms_septets))
             return END_PREFIX + SMS_MSG, "sms_long"
         items = data if isinstance(data, list) else [data if isinstance(data, dict) else {}]
-        lines = []
-        for item in items:
-            row = [
-                f"{f['label']}: {sanitise_slot(_dig(item, f['path']), f.get('max_len', 40))}"
-                for f in fields
-            ]
-            lines.append("\n".join(row))
-        screen = END_PREFIX + "\n".join(lines)
-        if len(screen) <= SCREEN_BUDGET and result.outcome != ActionOutcome.LONG:
+        max_items = op["result"].get("max_items")
+        if op["result"].get("shape") == "list" and max_items and len(items) > max_items:
+            # The upstream broke its own contract; V7 sized the SMS for maxItems.
+            logger.warning(
+                "upstream returned %d items, more than the declared maxItems %d; extra dropped",
+                len(items),
+                max_items,
+            )
+            items = items[:max_items]
+        body = format_items(fields, items)
+        screen = END_PREFIX + body
+        if len(screen) <= screen_budget and result.outcome != ActionOutcome.LONG:
             return screen, "result"
-
-        body = "\n".join(lines)
+        if septet_count(body) > sms_septets:  # only reachable for a bundle that failed V7
+            logger.warning("result SMS over the segment budget; cut to fit")
+            body = truncate_to_septets(body, sms_septets)
         self._queue_sms(dep, msisdn, mh, body)
         return END_PREFIX + SMS_MSG, "sms_long"
 

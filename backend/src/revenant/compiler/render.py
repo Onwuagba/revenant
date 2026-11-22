@@ -154,33 +154,32 @@ def _render_pin(state: State, max_chars: int) -> None:
 def _render_result(
     state: State, machine: Machine, ops_by_id: dict[str, Operation], max_chars: int
 ) -> None:
-    """Render a result screen. Converts to SMS_END if it doesn't fit."""
+    """Render a result screen from the shared formatter; SMS_END when the worst case is too long.
+
+    The template shows one item (``label: {path}`` per field); ``worst_case_len`` covers every
+    item up to ``maxItems``, so it is the real longest screen, not one row of it.
+    """
+    from .results import worst_case_screen_len
+
     op = ops_by_id.get(state.op_id)
     result = op.result if op else None
-
     if result and result.template:
         template = result.template
     elif result and result.fields:
-        # Build a template from result fields
-        parts = []
-        for f in result.fields:
-            parts.append(f"{f.label}: {{{f.path}}}")
-        template = "\n".join(parts)
+        template = "\n".join(f"{f.label}: {{{f.path}}}" for f in result.fields)
     else:
         template = "Done"
-
     state.template = template
-    # Create slots from result fields
-    slots = []
-    for f in result.fields if result else []:
-        slots.append(Slot(name=f.path, max_len=f.max_len))
-    state.slots = slots
-
+    state.slots = [
+        Slot(name=f.path, max_len=f.max_len if f.max_len is not None else max_chars)
+        for f in (result.fields if result else [])
+    ]
     state.static_len = len(state.template)
-    fits = _compute_worst_case(state, max_chars)
-
-    if not fits:
-        # Convert to SMS_END — result too long for a screen
+    _compute_worst_case(state, max_chars)
+    if result and result.fields:
+        worst = worst_case_screen_len(result)
+        state.worst_case_len = worst if worst is not None else max_chars + 1  # unbounded
+    if state.worst_case_len > max_chars:
         state.kind = StateKind.SMS_END
         state.template = "Details sent by SMS"
         state.slots = []

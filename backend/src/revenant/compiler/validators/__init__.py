@@ -57,7 +57,7 @@ def run_all(
         validate_steps(machine),
         validate_length(machine),
         validate_pin(machine),
-        validate_sms(machine),
+        validate_sms(machine, ir_ops),
         validate_refusal_soundness(machine, refused_op_ids or set()),
     ]
     return results

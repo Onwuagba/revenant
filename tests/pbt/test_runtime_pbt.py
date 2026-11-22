@@ -197,3 +197,67 @@ class TestSlotSanitisation:
         assert is_gsm7(out)
         assert not any(ord(c) < 0x20 for c in out)
         assert "CON " not in out and "END " not in out
+
+
+@pytest.mark.pbt
+class TestP11CompileTimeSizing:
+    """P11: SMS fallback: body GSM-7, segments <= budget, contains all declared result fields
+    (lossless) or compile refuses with R_... (here: V7 reports a violation)."""
+
+    @given(
+        n_fields=st.integers(min_value=1, max_value=4),
+        width=st.integers(min_value=1, max_value=40),
+        max_items=st.one_of(st.none(), st.integers(min_value=1, max_value=12)),
+        data=st.data(),
+    )
+    @settings(max_examples=100)
+    def test_P11_v7_pass_means_every_real_fill_fits_and_is_lossless(
+        self, n_fields, width, max_items, data
+    ):
+        import json as _json
+
+        from revenant.compiler.emit import compile_app
+        from revenant.compiler.ingest_openapi import ingest_openapi
+        from revenant.compiler.results import format_items, segment_count
+
+        props = {f"f{i}": {"type": "string", "maxLength": width} for i in range(n_fields)}
+        schema = {"type": "array", "items": {"type": "object", "properties": props}}
+        if max_items is not None:
+            schema["maxItems"] = max_items
+        spec = {
+            "openapi": "3.0.3",
+            "info": {"title": "T", "version": "1"},
+            "paths": {
+                "/r": {
+                    "get": {
+                        "operationId": "r",
+                        "summary": "R",
+                        "responses": {
+                            "200": {
+                                "description": "ok",
+                                "content": {"application/json": {"schema": schema}},
+                            }
+                        },
+                    }
+                }
+            },
+        }
+        drafts, _ = ingest_openapi(_json.dumps(spec))
+        app, _ = classify_app(drafts)
+        bundle = compile_app(app)
+        v7 = next(v for v in bundle["report"]["validators"] if v["validator"] == "V7_sms")
+        if not v7["passed"]:
+            return  # compile reported the problem: allowed outcome
+        result = app.operations[0].result
+        n = data.draw(st.integers(min_value=0, max_value=result.max_items))
+        items = [
+            {f"f{i}": data.draw(st.text(max_size=width * 2)) for i in range(n_fields)}
+            for _ in range(n)
+        ]
+        body = build_sms_body(
+            {"template": format_items([f.model_dump() for f in result.fields], items)}, {}
+        )
+        assert is_gsm7(body)
+        assert segment_count(body) <= bundle["machine"]["carrier_profile"]["sms_segments"]
+        for i in range(n_fields):
+            assert body.count(f"f{i}: ") == n

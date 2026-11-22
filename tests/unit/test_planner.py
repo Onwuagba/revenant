@@ -199,3 +199,41 @@ class TestRootMenuBoundary:
         eight = root_of(8)
         assert eight.root == "root_p0"
         assert "8" in eight.states["root_p0"].transitions
+
+
+class TestPaginatedRootNavigation:
+    """Regression: with >7 operations the root is root_p0; flows must point at real states."""
+
+    def _bundle(self):
+        from revenant.compiler.emit import compile_app
+
+        drafts = [
+            _draft(
+                f"op{i:02d}",
+                f"Op {i}",
+                kind="write",
+                params=[DraftParam(name="f", json_schema={"type": "boolean"})],
+            )
+            for i in range(9)
+        ]
+        app, _ = classify_app(drafts)
+        return compile_app(app)
+
+    def test_every_transition_targets_an_existing_state(self):
+        states = self._bundle()["machine"]["states"]
+        for sid, s in states.items():
+            for key, dest in s["transitions"].items():
+                assert dest in states, f"{sid} --{key}--> {dest} (missing)"
+
+    def test_back_returns_to_the_page_that_listed_the_operation(self):
+        from revenant.runtime.machine import replay_full
+
+        b = self._bundle()
+        assert replay_full(b, "8*2*0").state_id == "root_p1"
+        assert replay_full(b, "8*2*0").invalid_count == 0
+
+    def test_no_on_confirm_goes_home(self):
+        from revenant.runtime.machine import replay_full
+
+        b = self._bundle()
+        assert replay_full(b, "8*2*1*2").state_id == b["machine"]["root"] == "root_p0"

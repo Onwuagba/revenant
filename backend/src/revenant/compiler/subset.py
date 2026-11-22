@@ -333,27 +333,74 @@ def _classify_object(
 # ---------------------------------------------------------------------------
 # Result classification (basic — templates filled by render.py in spec 3)
 # ---------------------------------------------------------------------------
+#: Widest text a number or integer renders to (int64 has 19 digits plus sign; floats ~24).
+NUMBER_RESULT_WIDTH = 24
+
+#: Width of a rendered boolean result ("False").
+BOOLEAN_RESULT_WIDTH = 5
+
+#: Fixed widths for string formats with a known shape.
+FORMAT_WIDTHS = {"date": 10, "date-time": 29, "time": 15, "uuid": 36}
+
+
+def _positive_int(value: Any) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else None
+
+
+def _result_field_width(schema: Any) -> int | None:
+    """Longest rendered value for a result field, or None when the schema does not bound it."""
+    if not isinstance(schema, dict):
+        return None
+    type_ = schema.get("type")
+    enum = schema.get("enum")
+    if isinstance(enum, list) and enum:
+        return max(len(str(v)) for v in enum)
+    if type_ == "string":
+        max_len = _positive_int(schema.get("maxLength"))
+        if max_len is not None:
+            return max_len
+        return FORMAT_WIDTHS.get(str(schema.get("format", "")))
+    if type_ in ("integer", "number"):
+        return NUMBER_RESULT_WIDTH
+    if type_ == "boolean":
+        return BOOLEAN_RESULT_WIDTH
+    return None  # objects, arrays, untyped: no bound
+
+
+def _result_fields(props: Any) -> list[ResultField]:
+    if not isinstance(props, dict):
+        return []
+    return [
+        ResultField(path=str(k), label=str(k)[:20], max_len=_result_field_width(v))
+        for k, v in props.items()
+    ]
+
+
 def _classify_result(result_schema: dict[str, Any] | None) -> Result:
-    """Map a result schema to a Result model (templates left empty for now)."""
+    """Map a result schema to a Result: shape, declared fields with widths, list maxItems."""
     if result_schema is None:
         return Result(shape=ResultShape.TEXT)
     try:
         type_ = result_schema.get("type")
         if type_ == "array":
             items = result_schema.get("items", {})
+            max_items = _positive_int(result_schema.get("maxItems"))
             if isinstance(items, dict) and items.get("type") == "object":
-                props = items.get("properties", {})
-                fields = [ResultField(path=k, label=k) for k in props]
-                return Result(shape=ResultShape.LIST, fields=fields)
-            return Result(shape=ResultShape.LIST)
+                return Result(
+                    shape=ResultShape.LIST,
+                    fields=_result_fields(items.get("properties", {})),
+                    max_items=max_items,
+                )
+            return Result(shape=ResultShape.LIST, max_items=max_items)
         if type_ == "object":
-            props = result_schema.get("properties", {})
-            fields = [ResultField(path=k, label=k) for k in props]
-            return Result(shape=ResultShape.RECORD, fields=fields)
+            return Result(
+                shape=ResultShape.RECORD,
+                fields=_result_fields(result_schema.get("properties", {})),
+            )
         if type_ in ("string", "integer", "number", "boolean"):
             return Result(shape=ResultShape.SCALAR)
         return Result(shape=ResultShape.TEXT)
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001 - total function (P7)
         return Result(shape=ResultShape.TEXT)
 
 

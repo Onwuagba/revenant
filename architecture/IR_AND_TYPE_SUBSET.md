@@ -33,10 +33,12 @@ OpenAPI maps: `operationId` -> Operation; path/query/header/body scalar params -
 
 | Output shape | Handling |
 |---|---|
-| scalar / flat record | template with slot budgets; fits -> `END`; else SMS |
-| list of flat records | top-K rows per page by budget; remaining via SMS |
-| MCP text content | short -> screen; long -> SMS |
+| scalar / flat record | one `label: value` line per field; each field needs a bound (`maxLength`, `enum`, number, boolean or a fixed-width format); fits -> `END`; else SMS |
+| list of flat records | needs `maxItems` and bounded fields; whole list on one screen if it fits, else the whole list by SMS (no on-screen paging in v1) |
+| MCP text content / scalar | short -> screen; long -> SMS, cut to the segment budget with a trailing `...` (the only lossy path) |
 | 202 / `async` / upstream > deadline | `END` "We will SMS you" + job |
+
+Result sizing is checked by V7 at compile time with the same formatter the runtime uses: the worst case (every field full, `maxItems` rows, two-septet characters) must fit `carrier_profile.sms_segments`. A list without `maxItems` or a field without a bound is a V7 violation (no refusal code fits it, so none is added). At runtime an upstream that returns more than `maxItems` rows is cut to `maxItems` and a warning is logged.
 
 ## 4. Refusal codes (always reported, never silently dropped)
 | Code | Trigger |
