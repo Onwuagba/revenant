@@ -101,20 +101,32 @@ def can_transliterate(text: str) -> bool:
     return is_gsm7(transliterate(text))
 
 
+def unmappable_chars(text: str) -> list[str]:
+    """Characters in *text* that transliteration cannot map to GSM-7 (sorted, unique)."""
+    return sorted({ch for ch in transliterate(text) if ch not in GSM7_ALL})
+
+
 def strip_control_chars(text: str) -> str:
-    """Remove control characters except newline and tab."""
-    return "".join(ch for ch in text if ch == "\n" or ch == "\t" or ord(ch) >= 0x20)
+    """Remove control characters (C0, DEL and C1) except newline and tab."""
+    return "".join(
+        ch for ch in text if ch in "\n\t" or not (ord(ch) < 0x20 or 0x7F <= ord(ch) <= 0x9F)
+    )
+
+
+#: Replacement for upstream characters with no GSM-7 form (runtime values cannot be refused).
+REPLACEMENT_CHAR = "?"
 
 
 def sanitise_slot(value: str, max_len: int) -> str:
     """Sanitise a dynamic slot value for screen rendering.
 
-    Strips control chars, collapses newlines, transliterates to GSM-7,
-    and truncates to *max_len* characters.
+    Strips control chars, collapses newlines, transliterates to GSM-7, replaces anything
+    still outside GSM-7 with ``?``, and truncates to *max_len* characters.
     """
     cleaned = strip_control_chars(value)
     cleaned = " ".join(cleaned.split())  # collapse whitespace/newlines
     cleaned = transliterate(cleaned)
+    cleaned = "".join(ch if ch in GSM7_ALL else REPLACEMENT_CHAR for ch in cleaned)
     # Guard against CON /END prefix injection
     cleaned = cleaned.replace("CON ", "CON_").replace("END ", "END_")
     return cleaned[:max_len]

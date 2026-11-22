@@ -3,7 +3,7 @@ invalid-input retries must be bounded."""
 
 from __future__ import annotations
 
-from ..planner import TERMINAL_KINDS, Machine, StateKind
+from ..planner import TERMINAL_KINDS, Machine
 from . import ValidationResult, Violation
 
 
@@ -22,8 +22,8 @@ def validate_exits(machine: Machine) -> ValidationResult:
         state = machine.states[sid]
         if state.kind in TERMINAL_KINDS:
             continue
-        if state.kind == StateKind.ACTION:
-            continue
+        # ACTION states are checked too: V3 forces every screen state to have 00 -> ROOT, so
+        # an ACTION with no way on is the only place a session can get stuck.
         if sid not in can_reach_terminal:
             violations.append(
                 Violation(

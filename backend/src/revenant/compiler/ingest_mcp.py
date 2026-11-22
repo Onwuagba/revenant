@@ -12,11 +12,12 @@ guarded by the SSRF policy.
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from .ir import DraftOperation, DraftParam, OpKind, Risk
 from .refusals import Refusal, RefusalCode
-from .urlguard import check_url
+from .urlguard import DEFAULT_MAX_SIZE, DEFAULT_TIMEOUT, UrlGuardError, check_url
 
 #: Static registry of bundled stdio sample servers (no user-supplied commands).
 STDIO_REGISTRY: dict[str, list[str]] = {
@@ -146,31 +147,136 @@ def ingest_mcp_tools(
     return draft_ops, refusals
 
 
+class McpFetchError(Exception):
+    """A guarded MCP fetch failed its size or time cap (requirement 3.4)."""
+
+    def __init__(self, code: str, message: str) -> None:
+        self.code = code
+        self.message = message
+        super().__init__(f"[{code}] {message}")
+
+
+def _guarded_client(
+    *, allow_http: bool, max_bytes: int, timeout: float, failures: list[Exception]
+) -> Any:
+    """An httpx2 client for the MCP SDK that re-runs the URL guard and caps response size.
+
+    - Every request is guarded, not only the first: this covers same-origin redirects (the
+      SDK follows no other kind) and narrows DNS rebinding to the gap between our resolution
+      and the connection. The connection is not pinned to the checked IP; doing that over TLS
+      needs SNI control we have not verified, so a small window remains.
+    - Responses are capped on Content-Length and on the bytes actually read.
+    - Proxy settings from the environment are ignored so the guard checks the real peer.
+
+    The SDK swallows errors raised while it reads a stream and reports a generic one, so the
+    first guard or cap failure is also appended to *failures* for the caller to report.
+    """
+    import httpx2
+
+    class _CappedStream(httpx2.AsyncByteStream):
+        def __init__(self, inner: Any) -> None:
+            self._inner = inner
+            self._seen = 0
+
+        async def __aiter__(self) -> Any:
+            async for chunk in self._inner:
+                self._seen += len(chunk)
+                if self._seen > max_bytes:
+                    err = McpFetchError("TOO_LARGE", f"MCP response exceeds {max_bytes} bytes")
+                    failures.append(err)
+                    raise err
+                yield chunk
+
+        async def aclose(self) -> None:
+            await self._inner.aclose()
+
+    class _GuardedTransport(httpx2.AsyncBaseTransport):
+        def __init__(self) -> None:
+            self._inner = httpx2.AsyncHTTPTransport(trust_env=False)
+
+        async def handle_async_request(self, request: Any) -> Any:
+            try:
+                check_url(str(request.url), allow_http=allow_http)
+            except UrlGuardError as guard_err:
+                failures.append(guard_err)
+                raise
+            resp = await self._inner.handle_async_request(request)
+            length = resp.headers.get("content-length", "")
+            if length.isdigit() and int(length) > max_bytes:
+                await resp.aclose()
+                err = McpFetchError("TOO_LARGE", f"MCP response exceeds {max_bytes} bytes")
+                failures.append(err)
+                raise err
+            return httpx2.Response(
+                status_code=resp.status_code,
+                headers=resp.headers,
+                stream=_CappedStream(resp.stream),
+                extensions=resp.extensions,
+            )
+
+        async def aclose(self) -> None:
+            await self._inner.aclose()
+
+    return httpx2.AsyncClient(
+        transport=_GuardedTransport(), timeout=httpx2.Timeout(timeout), trust_env=False
+    )
+
+
+def _first_cause(exc: BaseException) -> BaseException:
+    """Unwrap anyio task-group exception groups to the first real error."""
+    while isinstance(exc, BaseExceptionGroup) and exc.exceptions:
+        exc = exc.exceptions[0]
+    return exc
+
+
 async def ingest_mcp(
     url: str,
     *,
     allow_http: bool = False,
+    max_bytes: int = DEFAULT_MAX_SIZE,
+    timeout: float = DEFAULT_TIMEOUT,
 ) -> tuple[list[DraftOperation], list[Refusal]]:
     """Connect to a streamable-HTTP MCP server and ingest its tools.
 
     Requirement 4.1: calls initialize and tools/list.
     Requirement 4.4: only streamable HTTP from users; stdio from registry.
-    Requirement 3.1: URL guarded by SSRF policy.
+    Requirements 3.1-3.4: URL guarded on every request; size and total-time caps.
+    Raises UrlGuardError or McpFetchError; never returns partial results.
     """
     from mcp.client.session import ClientSession
     from mcp.client.streamable_http import streamable_http_client
 
-    # Guard the URL (SSRF policy)
-    target = check_url(url, allow_http=allow_http)
+    target = check_url(url, allow_http=allow_http)  # fail fast before any connection
 
-    # mcp 1.x yields (read, write, get_session_id); mcp 2.x yields (read, write).
-    async with streamable_http_client(target.url) as streams:
-        read, write = streams[0], streams[1]
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-            result = await session.list_tools()
-            tools = [tool_to_dict(t) for t in result.tools]
-            return ingest_mcp_tools(tools)
+    failures: list[Exception] = []
+
+    async def _run() -> tuple[list[DraftOperation], list[Refusal]]:
+        async with _guarded_client(
+            allow_http=allow_http, max_bytes=max_bytes, timeout=timeout, failures=failures
+        ) as client:
+            # mcp 1.x yields (read, write, get_session_id); mcp 2.x yields (read, write).
+            async with streamable_http_client(
+                target.url, http_client=client, max_sse_event_size=max_bytes
+            ) as streams:
+                read, write = streams[0], streams[1]
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    result = await session.list_tools()
+                    return ingest_mcp_tools([tool_to_dict(t) for t in result.tools])
+
+    try:
+        return await asyncio.wait_for(_run(), timeout)
+    except TimeoutError as exc:
+        if failures:
+            raise failures[0] from exc
+        raise McpFetchError("TIMEOUT", f"MCP ingest exceeded {timeout:g} s") from exc
+    except Exception as exc:
+        if failures:  # our guard or cap tripped; the SDK may have reported something generic
+            raise failures[0] from exc
+        cause = _first_cause(exc)
+        if isinstance(cause, (UrlGuardError, McpFetchError)):
+            raise cause from exc
+        raise McpFetchError("FETCH_FAILED", type(cause).__name__) from exc
 
 
 def is_allowed_stdio(name: str) -> bool:

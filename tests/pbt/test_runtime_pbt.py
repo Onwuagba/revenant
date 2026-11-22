@@ -180,3 +180,20 @@ class TestP11SmsFallback:
         else:
             expected = (septets + 152) // 153
             assert segments == expected, f"septets={septets} got={segments} expected={expected}"
+
+
+@pytest.mark.pbt
+class TestSlotSanitisation:
+    """P1 for runtime slot values: any upstream string is rendered GSM-7, control-free,
+    within its slot budget and unable to forge a CON/END prefix."""
+
+    @given(value=st.text(max_size=200), max_len=st.integers(min_value=0, max_value=60))
+    @settings(max_examples=200)
+    def test_P1_slot_values_are_screen_safe(self, value, max_len):
+        from revenant.compiler.gsm7 import sanitise_slot
+
+        out = sanitise_slot(value, max_len)
+        assert len(out) <= max_len
+        assert is_gsm7(out)
+        assert not any(ord(c) < 0x20 for c in out)
+        assert "CON " not in out and "END " not in out

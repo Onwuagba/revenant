@@ -211,3 +211,38 @@ class TestP10Pagination:
         # Every operation entry should be covered exactly once
         expected = {f"op{i:02d}__action" for i in range(10)}
         assert all_items == expected, f"Missing or extra items: {all_items ^ expected}"
+
+
+@pytest.mark.pbt
+class TestP4BackPreservesParams:
+    """P4: Back: from any non-root INPUT/MENU state, `0` leads to the previous state and
+    collected params before it are preserved; `00` reaches ROOT."""
+
+    @given(drafts=st_app())
+    @settings(max_examples=50)
+    def test_P4_back_goes_to_prev(self, drafts):
+        app, machine = _compile_machine(drafts)
+        for sid, state in machine.states.items():
+            if sid == machine.root or state.kind not in (StateKind.INPUT, StateKind.MENU):
+                continue
+            if sid.startswith("root_p"):
+                continue  # root pages: page 2's 0 is page 1 (checked in test_planner)
+            assert state.transitions.get("0") == state.prev, sid
+            assert state.prev in machine.states
+
+    def test_P4_back_keeps_earlier_params_in_clinic_flow(self):
+        from pathlib import Path
+
+        from revenant.compiler.emit import compile_app
+        from revenant.compiler.ingest_openapi import ingest_openapi
+        from revenant.runtime.machine import replay_full
+
+        drafts, _ = ingest_openapi(Path("examples/specs/clinic.openapi.yaml").read_bytes())
+        app, _ = classify_app(drafts, slug="clinic", title="Clinic")
+        b = compile_app(app)
+        forward = replay_full(b, "1*c1*s1")
+        back = replay_full(b, "1*c1*s1*0")
+        assert back.state_id == b["machine"]["states"][forward.state_id]["prev"]
+        assert back.params.get("clinic_id") == "c1"  # earlier param kept
+        again = replay_full(b, "1*c1*s1*0*s9")
+        assert again.params == {"clinic_id": "c1", "slot_id": "s9"}  # re-entry overwrites
