@@ -84,7 +84,7 @@ agent's `gsm7.py` diff followed by a "Run Command Hook: pbt-on-compiler-save" ca
 Neither the log nor the chat shows the hook's pytest output for that first run.
 
 Second run, 21:08:22 WAT: the hook command was temporarily changed to append a timestamp and its pytest output to
-`.kiro/hook-debug.log`, and a second agent docstring edit to `gsm7.py` triggered it. The hook's own output reads
+a log file (now `runs/hook-debug.log`, git-ignored), and a second agent docstring edit to `gsm7.py` triggered it. The hook's own output reads
 `32 passed, 340 deselected in 45.26s` (Python 3.12.12, pytest 9.2.0, Hypothesis 6.170.15, `dev` profile). Copy with
 the local path removed: `hook-firing-20261122/hook-output-2108.log`. One run; this shows the hook runs the suite and
 reports the result back to the agent, not that it catches regressions.
