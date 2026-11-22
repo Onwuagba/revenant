@@ -55,15 +55,15 @@ They are **not** evidence that Kiro itself behaves well.
 ## How the project was built
 The `.kiro/` specs, steering, hooks and agents are committed. Which tool did what, per the commit history and the
 build log in `KIRO_START_HERE.md` (section 9):
-- Specs 4 and 5, the platform API and the console were written outside the Kiro IDE, with Claude Code (15 Nov).
+- Specs 4 and 5, the platform API and the console were written outside the Kiro IDE, with an AI coding assistant in the terminal (15 Nov).
 - Kiro headless (`kiro-cli`) ran the compile-time annotation stage for real on 16 Nov (3 runs) and 22 Nov (1 fresh run, see below).
 - Task 17 of runtime-sms (stateful key-press property test) was written by the Kiro IDE agent through "Start task"
   on 21 Nov (commit message records this).
-- All 81 tasks across the 6 specs are now ticked. Tasks 12 and 13 of kiro-compile-step were ticked by hand (Claude Code)
+- All 81 tasks across the 6 specs are now ticked. Tasks 12 and 13 of kiro-compile-step were ticked by hand (AI coding assistant)
   against the 16 Nov evidence, not by Kiro.
 - Two 21 Nov commits do not record which tool made them (the runtime-sms `tasks.md` reformat and the lint/typing
   "Step 3" commit); they are listed as "not recorded" in the build log rather than guessed.
-- Deploy files (Dockerfile, `render.yaml`, console served by the API) and the evidence scripts were written with Claude Code (22 Nov).
+- Deploy files (Dockerfile, `render.yaml`, console served by the API) and the evidence scripts were written with an AI coding assistant in the terminal (22 Nov).
 Hooks: the Kiro IDE log shows all 4 hook files load (`v2 hooks loaded 4 standalone hooks from .kiro/hooks/`), so the file
 format and trigger names are accepted. The IDE log has no line showing a hook firing, so **no hook firing is claimed**.
 On 14 Nov the same log shows `hooks.v2.executionDisabledUntrustedWorkspace` (hooks do not run in an untrusted workspace).
