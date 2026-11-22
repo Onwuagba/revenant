@@ -28,9 +28,10 @@ from sse_starlette.sse import EventSourceResponse
 
 from ..compiler.annotate.cache import AnnotationCache
 from ..compiler.annotate.pipeline import compile_with_annotation
-from ..compiler.ingest_mcp import ingest_mcp, ingest_mcp_tools
+from ..compiler.ingest_mcp import McpFetchError, ingest_mcp, ingest_mcp_tools
 from ..compiler.ingest_openapi import IngestError, ingest_openapi
 from ..compiler.subset import classify_app
+from ..compiler.urlguard import UrlGuardError
 from ..runtime.service import ERROR_MSG, Deployment, UssdService
 from ..runtime.sms import EmulatorSms
 from ..runtime.store import MsisdnCodec, create_all, make_engine
@@ -121,7 +122,7 @@ def create_app(
     engine: sa.Engine | None = None, *, seed: bool = True, runs_root: Path = Path("runs")
 ) -> FastAPI:
     engine = engine or make_engine(
-        os.environ.get("REVENANT_DATABASE_URL", "sqlite+pysqlite:///:memory:")
+        os.environ.get("REVENANT_DATABASE_URL") or "sqlite+pysqlite:///:memory:"
     )
     create_all(engine)
     codec = MsisdnCodec()
@@ -553,6 +554,8 @@ def create_app(
             _emit(run_id, "done", status=status, bundle_id=bid)
         except IngestError as exc:
             _fail(run_id, f"{exc.code}: input could not be read")
+        except (McpFetchError, UrlGuardError) as exc:  # codes only: no URL, no server text
+            _fail(run_id, f"{exc.code}: MCP server could not be read")
         except Exception as exc:  # no internals leaked to the client
             _fail(run_id, f"Compile failed ({type(exc).__name__})")
 

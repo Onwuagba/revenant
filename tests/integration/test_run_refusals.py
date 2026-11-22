@@ -1,4 +1,5 @@
-"""A run that refused every operation has no bundle; its refusals must still be returned with the run."""
+"""A run that refused every operation has no bundle; its refusals must still be returned with
+the run."""
 
 from __future__ import annotations
 

@@ -12,7 +12,8 @@ WORKDIR /app
 COPY backend /app/backend
 COPY examples /app/examples
 COPY .kiro/steering /app/.kiro/steering
-RUN pip install --no-cache-dir -e "/app/backend[web,mcp]" uvicorn
+# Exact versions from backend/constraints.txt (the set the test suite passed with).
+RUN pip install --no-cache-dir -c /app/backend/constraints.txt -e "/app/backend[web,mcp]"
 COPY --from=console /web/dist /app/console
 ENV PYTHONPATH=/app \
     REVENANT_CONSOLE_DIR=/app/console \

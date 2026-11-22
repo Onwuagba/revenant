@@ -120,6 +120,7 @@ def test_P8_stateful_key_presses():
     Also checks CON/END prefix, carrier max_chars, terminal stickiness and the
     3-invalid retry limit over random key sequences.
     """
-    cfg = settings(max_examples=50, stateful_step_count=12, deadline=None)
+    # max_examples comes from the active profile (dev/ci/deep); hand edit, see the build log.
+    cfg = settings(stateful_step_count=12, deadline=None)
     ClinicKeyPresses.TestCase.settings = cfg
     ClinicKeyPresses.TestCase("runTest").runTest()

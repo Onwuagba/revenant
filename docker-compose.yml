@@ -1,17 +1,50 @@
-# Single-host demo deployment. Caddy terminates TLS; set REVENANT_HOST to your domain.
-# The Kiro CLI is NOT bundled: without it (or KIRO_API_KEY) compiles use the deterministic annotator and say so.
+# Local run: `docker compose up` from the repo root, then open http://localhost:8000
+#
+# - app: API + AT-shaped /ussd callback + the built console (one origin), from ./Dockerfile.
+# - db:  PostgreSQL 16, the only datastore (steering tech.md). Data persists in the `pgdata` volume;
+#        `docker compose down -v` deletes it.
+#
+# Local use only. The database uses trust auth on the private compose network and publishes no port,
+# so no password is committed. Cookies are sent without `Secure` because this is plain http on
+# localhost. For a server, use HTTPS (see render.yaml / infrastructure/Caddyfile), set a database
+# password and remove REVENANT_INSECURE_COOKIES.
+#
+# Optional settings go in a `.env` file next to this one (copy .env.example; never commit it):
+# REVENANT_MSISDN_KEY (otherwise a random key per start), REVENANT_VIEWER_PASSWORD (creates the
+# read-only viewer@revenant.local account), KIRO_API_KEY (otherwise the deterministic annotator).
 services:
-  api:
-    build: .
-    env_file: .env
+  db:
+    image: postgres:16-alpine
     environment:
-      REVENANT_DATABASE_URL: sqlite+pysqlite:////data/revenant.db
-    volumes: ["data:/data"]
-    expose: ["8000"]
-  caddy:
-    image: caddy:2
-    ports: ["80:80", "443:443"]
-    environment: { REVENANT_HOST: "${REVENANT_HOST:-localhost}" }
-    volumes: ["./infrastructure/Caddyfile:/etc/caddy/Caddyfile:ro", "caddy:/data"]
-    depends_on: [api]
-volumes: { data: {}, caddy: {} }
+      POSTGRES_USER: revenant
+      POSTGRES_DB: revenant
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U revenant -d revenant"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      REVENANT_DATABASE_URL: postgresql+psycopg://revenant@db:5432/revenant
+      REVENANT_INSECURE_COOKIES: "1"
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz')"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+
+volumes:
+  pgdata:

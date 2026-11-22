@@ -41,7 +41,7 @@ def create_app() -> FastAPI:
             return JSONResponse({"error": "boom"}, status_code=500)
         if app.state.mode == "async":
             return JSONResponse({"status": "queued"}, status_code=202)
-        if body.get("pin") != os.environ.get("CLINIC_DEMO_PIN", "2468"):
+        if body.get("pin") != (os.environ.get("CLINIC_DEMO_PIN") or "2468"):
             return JSONResponse({"error": "bad pin"}, status_code=401)
         return JSONResponse({"code": "BK" + str(len(app.state.calls)), "time": "09:00"}, status_code=201)
 

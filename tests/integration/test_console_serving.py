@@ -1,4 +1,5 @@
-"""Single-service deployment: the API serves the built console from the same origin (REVENANT_CONSOLE_DIR)."""
+"""Single-service deployment: the API serves the built console from the same origin
+(REVENANT_CONSOLE_DIR)."""
 
 from __future__ import annotations
 
