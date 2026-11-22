@@ -246,7 +246,7 @@ def _extract_params(
         if "$ref" in body_schema:
             resolved = resolver.resolve_schema(body_schema)
             if isinstance(resolved, Refusal):
-                refusals.append(resolved)
+                refusals.append(Refusal.make(op_id, "#/requestBody/schema", resolved.code))
                 return draft_params, refusals
             body_schema = resolved
         draft_params.append(
@@ -261,26 +261,44 @@ def _extract_params(
     return draft_params, refusals
 
 
-def _get_body_schema(op_obj: dict[str, Any], resolver: RefResolver) -> dict[str, Any] | None:
-    """Extract the request body JSON schema from an OpenAPI operation."""
-    body = op_obj.get("requestBody", {})
-    if not body:
-        return None
-    # Resolve $ref on body itself
+#: Request-body media types whose schema we read (flat objects only; the classifier decides).
+_READABLE_BODY_TYPES = ("application/json", "application/yaml", "application/x-www-form-urlencoded")
+
+
+def _get_body_schema(
+    op_obj: dict[str, Any], resolver: RefResolver, op_id: str
+) -> tuple[dict[str, Any] | None, Refusal | None]:
+    """Extract the request body schema, or a Refusal. A body is never dropped silently."""
+    body = op_obj.get("requestBody")
+    if not body or not isinstance(body, dict):
+        return None, None
     if "$ref" in body:
         resolved = resolver.resolve_schema(body)
         if isinstance(resolved, Refusal):
-            return None
+            return None, Refusal.make(op_id, "#/requestBody", resolved.code)
         body = resolved
-
     content = body.get("content", {})
-    # Prefer application/json
-    for media_type in ("application/json", "application/yaml"):
-        if media_type in content:
-            schema = content[media_type].get("schema", {})
-            if isinstance(schema, dict):
-                return schema
-    return None
+    if not isinstance(content, dict) or not content:
+        return None, None
+    for media_type in _READABLE_BODY_TYPES:
+        entry = content.get(media_type)
+        if isinstance(entry, dict) and isinstance(entry.get("schema", {}), dict):
+            return entry.get("schema", {}), None
+    # Only media types we do not read: multipart, octet-stream, images are binary input;
+    # anything else (xml, text) is an unconstrained text body.
+    media = sorted(content)
+    binary = any(
+        m.startswith(("multipart/", "image/", "audio/", "video/"))
+        or m == "application/octet-stream"
+        for m in media
+    )
+    code = RefusalCode.R_BINARY if binary else RefusalCode.R_FREE_TEXT
+    return None, Refusal.make(
+        op_id,
+        "#/requestBody",
+        code,
+        message=f"Request body media type(s) not supported: {', '.join(media)}.",
+    )
 
 
 def _get_response_schema(op_obj: dict[str, Any], resolver: RefResolver) -> dict[str, Any] | None:
@@ -341,6 +359,7 @@ def ingest_openapi(
         if "$ref" in path_item:
             resolved = resolver.resolve_schema(path_item)
             if isinstance(resolved, Refusal):
+                ingest_refusals.append(Refusal.make(path, f"#/paths/{path}", resolved.code))
                 continue
             path_item = resolved
 
@@ -376,13 +395,16 @@ def ingest_openapi(
                 op_params = []
             all_params = path_params + op_params
 
-            body_schema = _get_body_schema(op_obj, resolver)
+            body_schema, body_refusal = _get_body_schema(op_obj, resolver, op_id)
             result_schema = _get_response_schema(op_obj, resolver)
 
             draft_params, param_refusals = _extract_params(all_params, body_schema, resolver, op_id)
 
-            if param_refusals:
-                ingest_refusals.extend(param_refusals)
+            # Refusals found while reading the operation exclude the whole operation (P13);
+            # the classifier reports them, so they are not returned a second time.
+            op_refusals = list(param_refusals)
+            if body_refusal is not None:
+                op_refusals.append(body_refusal)
 
             # Risk: money/identity hint from tags or summary keywords
             risk = Risk.LOW
@@ -402,6 +424,7 @@ def ingest_openapi(
                     result_schema=result_schema,
                     risk=risk,
                     id_generated=generated,
+                    refusals=op_refusals,
                 )
             )
 

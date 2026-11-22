@@ -322,3 +322,146 @@ class TestOddOperationFields:
         assert len(drafts) == 1
         assert isinstance(drafts[0].id, str) and drafts[0].id
         assert len(drafts[0].title) <= 24
+
+
+def _spec(paths, components=None):
+    doc = {"openapi": "3.1.0", "info": {"title": "T", "version": "1"}, "paths": paths}
+    if components:
+        doc["components"] = components
+    return json.dumps(doc)
+
+
+def _op(op_id, params=None, body=None):
+    op = {"operationId": op_id, "summary": op_id, "responses": {"200": {"description": "ok"}}}
+    if params:
+        op["parameters"] = params
+    if body is not None:
+        op["requestBody"] = body
+    return op
+
+
+FLAG = {"name": "flag", "in": "query", "required": True, "schema": {"type": "boolean"}}
+
+
+class TestNothingIsDroppedSilently:
+    """An operation with anything we cannot read is refused whole, never compiled without it."""
+
+    def _classify(self, spec):
+        drafts, ing = ingest_openapi(spec)
+        app, report = classify_app(drafts)
+        return app, report, ing
+
+    def test_unresolvable_param_ref_refuses_the_operation(self):
+        bad = {
+            "name": "p",
+            "in": "query",
+            "required": True,
+            "schema": {"$ref": "https://evil.example/s.json"},
+        }
+        spec = _spec(
+            {
+                "/a": {"get": _op("bad_op", [bad, FLAG])},
+                "/b": {"get": _op("good_op", [FLAG])},
+            }
+        )
+        app, report, _ = self._classify(spec)
+        assert [o.id for o in app.operations] == ["good_op"]
+        assert report["per_code"] == {"R_REF_UNRESOLVED": 1}
+        assert report["refused_count"] == 1
+
+    def test_missing_local_param_ref_refuses_the_operation(self):
+        bad = {
+            "name": "p",
+            "in": "query",
+            "required": True,
+            "schema": {"$ref": "#/components/schemas/Nope"},
+        }
+        app, report, _ = self._classify(_spec({"/a": {"get": _op("bad_op", [bad])}}))
+        assert app.operations == []
+        assert report["per_code"] == {"R_REF_UNRESOLVED": 1}
+
+    def test_unresolvable_request_body_ref_refuses_the_operation(self):
+        body = {"$ref": "#/components/requestBodies/Missing"}
+        spec = _spec({"/a": {"post": _op("bad_op", [FLAG], body)}})
+        app, report, _ = self._classify(spec)
+        assert app.operations == []
+        assert report["per_code"] == {"R_REF_UNRESOLVED": 1}
+
+    @pytest.mark.parametrize(
+        "media,schema,code",
+        [
+            ("application/octet-stream", {"type": "string", "format": "binary"}, "R_BINARY"),
+            ("multipart/form-data", {"type": "object"}, "R_BINARY"),
+            ("image/png", {"type": "string", "format": "binary"}, "R_BINARY"),
+            ("application/xml", {"type": "string"}, "R_FREE_TEXT"),
+            ("text/plain", {"type": "string"}, "R_FREE_TEXT"),
+        ],
+    )
+    def test_unreadable_request_body_is_refused_with_a_code(self, media, schema, code):
+        body = {"required": True, "content": {media: {"schema": schema}}}
+        app, report, _ = self._classify(_spec({"/a": {"post": _op("up", None, body)}}))
+        assert app.operations == []
+        assert report["per_code"] == {code: 1}
+
+    def test_flat_form_body_is_read_like_json(self):
+        schema = {"type": "object", "properties": {"flag": {"type": "boolean"}}}
+        body = {"content": {"application/x-www-form-urlencoded": {"schema": schema}}}
+        app, _, _ = self._classify(_spec({"/a": {"post": _op("f", None, body)}}))
+        assert [p.name for p in app.operations[0].params] == ["flag"]
+
+    def test_unresolvable_path_item_ref_is_reported(self):
+        spec = _spec({"/a": {"$ref": "#/paths/~1missing"}, "/b": {"get": _op("ok_op", [FLAG])}})
+        drafts, ing = ingest_openapi(spec)
+        assert [d.id for d in drafts] == ["ok_op"]
+        assert [r.code.value for r in ing] == ["R_REF_UNRESOLVED"]
+
+    def test_unsupported_demo_spec_now_refuses_the_binary_upload(self):
+        raw = (EXAMPLES / "unsupported-demo.openapi.yaml").read_bytes()
+        drafts, _ = ingest_openapi(raw)
+        app, report = classify_app(drafts)
+        assert report["per_code"].get("R_BINARY") == 1
+        assert "upload_file" not in {o.id for o in app.operations}
+
+    def test_schema_deeper_than_classifier_cap_refuses_only_that_operation(self):
+        """Requirement 2.5: schema depth over the classifier cap (20) refuses the operation
+        with a code, not raise. The document stays under the 50-level load cap."""
+        from revenant.compiler.subset import DEFAULT_DEPTH_LIMIT
+
+        # Each nesting level is two document levels and the schema sits 7 levels into the
+        # document, so the 50-level load cap admits at most 21 levels: one past the cap of 20.
+        schema = {"type": "boolean"}
+        for _ in range(DEFAULT_DEPTH_LIMIT + 1):
+            schema = {"type": "object", "properties": {"x": schema}}
+        body = {"content": {"application/json": {"schema": schema}}}
+        spec = _spec({"/a": {"post": _op("deep", None, body)}, "/b": {"get": _op("ok", [FLAG])}})
+        app, report, _ = self._classify(spec)
+        assert [o.id for o in app.operations] == ["ok"]
+        assert report["refused_count"] == 1
+        assert set(report["per_code"]) <= {"R_NESTED_OBJECT", "R_RECURSIVE"}
+
+    def test_document_deeper_than_load_cap_is_rejected_before_classification(self):
+        """Anti-DoS cap (SECURITY T9): a document over 50 levels is rejected at load."""
+        from revenant.compiler.ingest_openapi import MAX_DOC_DEPTH
+
+        schema = {"type": "boolean"}
+        for _ in range(MAX_DOC_DEPTH):
+            schema = {"type": "object", "properties": {"x": schema}}
+        body = {"content": {"application/json": {"schema": schema}}}
+        with pytest.raises(IngestError) as exc:
+            ingest_openapi(_spec({"/a": {"post": _op("deep", None, body)}}))
+        assert exc.value.code == "TOO_DEEP"
+
+
+class TestOpenApi31AndFormats:
+    def test_31_json_and_yaml_both_load(self):
+        as_json = _spec({"/a": {"get": _op("op_a", [FLAG])}})
+        import yaml
+
+        as_yaml = yaml.safe_dump(json.loads(as_json))
+        for raw in (as_json, as_yaml):
+            drafts, _ = ingest_openapi(raw)
+            assert [d.id for d in drafts] == ["op_a"]
+
+    def test_30_still_loads(self):
+        raw = (EXAMPLES / "clinic.openapi.yaml").read_bytes()
+        assert any(d.id == "list_clinics" for d in ingest_openapi(raw)[0])

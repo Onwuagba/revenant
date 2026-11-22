@@ -147,3 +147,55 @@ class TestStateMachine:
         m1 = plan(app1)
         m2 = plan(app2)
         assert m1.canonical_dict() == m2.canonical_dict()
+
+
+class TestParamMenuPagination:
+    """Planner requirement 1.3: menus with more than 5 items paginate 5 per page."""
+
+    def _states(self, n):
+        drafts = [
+            _draft(
+                "pick",
+                "Pick",
+                params=[
+                    DraftParam(
+                        name="c",
+                        json_schema={"type": "string", "enum": [f"v{i}" for i in range(n)]},
+                    )
+                ],
+            )
+        ]
+        app, _ = classify_app(drafts)
+        return plan(app).states
+
+    def test_five_values_do_not_paginate(self):
+        s = self._states(5)
+        assert "pick__step0_c_p1" not in s
+        assert "8" not in s["pick__step0_c"].transitions
+
+    def test_six_values_paginate_with_more_and_back(self):
+        s = self._states(6)
+        first, second = s["pick__step0_c"], s["pick__step0_c_p1"]
+        assert first.transitions["8"] == second.id
+        assert second.transitions["0"] == first.id  # Back from page 2 is page 1
+        assert second.transitions["00"] == "root"
+        assert second.options == ["v5"]
+
+    def test_36_values_make_eight_pages(self):
+        s = self._states(36)
+        assert len([k for k in s if k.startswith("pick__step0_c")]) == 8
+
+
+class TestRootMenuBoundary:
+    def test_seven_operations_single_page_eight_paginate(self):
+        def root_of(n):
+            drafts = [_draft(f"op{i:02d}", f"Op {i}") for i in range(n)]
+            app, _ = classify_app(drafts)
+            return plan(app)
+
+        seven = root_of(7)
+        assert seven.root == "root"
+        assert len([k for k in seven.states["root"].transitions if k not in ("0", "00")]) == 7
+        eight = root_of(8)
+        assert eight.root == "root_p0"
+        assert "8" in eight.states["root_p0"].transitions

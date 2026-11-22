@@ -87,6 +87,8 @@ def _render_menu(
 
         for i, val in enumerate(state.options):
             lines.append(f"{i + 1} {menu_label(val)}")
+        if "8" in state.transitions:
+            lines.append("8 More")
         if "0" in state.transitions:
             lines.append("0 Back")
         if "00" in state.transitions:

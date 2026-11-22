@@ -16,6 +16,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from .refusals import Refusal
+
 
 # ---------------------------------------------------------------------------
 # Enums
@@ -221,6 +223,8 @@ class DraftOperation(BaseModel):
     async_: bool = False
     #: True when the id was generated from method+path (spec had no operationId).
     id_generated: bool = False
+    #: Refusals found while ingesting this operation; the classifier excludes the operation.
+    refusals: list[Refusal] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------

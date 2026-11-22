@@ -230,6 +230,7 @@ def replay_full(bundle: dict[str, Any], text: str, today: date | None = None) ->
             and state.get("param_name")
             and segment in transitions
             and segment not in ("0", "00")
+            and not (segment == "8" and state.get("next_page"))  # "8 More" selects nothing
         ):
             trace.params[state["param_name"]] = _menu_value(state, segment, today)
         trace.state_id = next_id

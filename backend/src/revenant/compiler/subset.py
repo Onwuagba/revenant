@@ -371,7 +371,7 @@ def classify_operation(
     Refusal is returned (requirement 3.4).
     """
     seen_refs: frozenset[str] = frozenset()
-    refusals: list[Refusal] = []
+    refusals: list[Refusal] = list(draft.refusals)
     leaf_params: list[Param] = []
 
     for dp in draft.params:

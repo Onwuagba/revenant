@@ -114,19 +114,18 @@ def _param_kind(p: Param) -> StateKind:
     return StateKind.INPUT
 
 
-#: Max selectable options on a param menu (keys 1-5; 0/00 are navigation).
+#: Options per page on a param menu (keys 1-5; 8 = More, 0 = Back, 00 = Home).
 MAX_MENU_OPTIONS = 5
 
 
 def menu_options(p: Param) -> list[str]:
     """Option values for a param menu: enum values, true/false, or +N day offsets."""
     if p.type == ParamType.ENUM_MENU and p.constraints.enum:
-        return [str(v) for v in p.constraints.enum[:MAX_MENU_OPTIONS]]
+        return [str(v) for v in p.constraints.enum]
     if p.type == ParamType.BOOLEAN:
         return ["true", "false"]
     if p.type == ParamType.DATE_WINDOW:
-        n = min(p.constraints.window or MAX_MENU_OPTIONS, MAX_MENU_OPTIONS)
-        return [f"+{i}" for i in range(n)]
+        return [f"+{i}" for i in range(p.constraints.window or MAX_MENU_OPTIONS)]
     return []
 
 
@@ -249,9 +248,30 @@ def _build_op_flow(machine: Machine, op: Operation) -> str:
             elif kind == StateKind.MENU:
                 leaf_p = next((q for q in leaf if q.name == pname), None)
                 opts = menu_options(leaf_p) if leaf_p else []
-                state.options = opts
-                for k in range(1, max(len(opts), 1) + 1):
+                pages = [
+                    opts[i : i + MAX_MENU_OPTIONS] for i in range(0, len(opts), MAX_MENU_OPTIONS)
+                ] or [[]]
+                state.options = pages[0]
+                for k in range(1, max(len(pages[0]), 1) + 1):
                     state.transitions[str(k)] = nxt
+                # Menus with more than 5 options paginate: 5 per page, "8 More", "0 Back".
+                chain = [state]
+                for pi in range(1, len(pages)):
+                    page = State(
+                        id=f"{sid}_p{pi}",
+                        kind=StateKind.MENU,
+                        op_id=op.id,
+                        param_name=pname,
+                        title=op.title,
+                        prev=chain[-1].id,
+                        options=pages[pi],
+                    )
+                    for k in range(1, len(pages[pi]) + 1):
+                        page.transitions[str(k)] = nxt
+                    chain[-1].next_page = page.id
+                    chain[-1].transitions["8"] = page.id
+                    machine.states[page.id] = page
+                    chain.append(page)
             elif kind == StateKind.CONFIRM:
                 state.transitions["1"] = nxt
                 state.transitions["2"] = root
