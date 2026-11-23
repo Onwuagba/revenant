@@ -40,7 +40,7 @@ REVENANT_INSECURE_COOKIES=1 uvicorn revenant.api.main:app --port 8765     # API 
 ```
 In a second terminal:
 ```bash
-cd frontend && npm install && REVENANT_API=http://127.0.0.1:8765 npm run dev   # console on http://127.0.0.1:5173
+cd frontend && npm install && REVENANT_API=http://127.0.0.1:8765 npm run dev   # console on http://localhost:5173
 ```
 `REVENANT_INSECURE_COOKIES=1` is for local HTTP only; production keeps `Secure` cookies.
 
@@ -56,6 +56,7 @@ pytest tests -q                                  # unit, property-based, integra
 pytest -m pbt --hypothesis-profile=ci -q         # Hypothesis ci profile (seed and counts are printed by the run)
 ruff check --config backend/pyproject.toml backend/src tests && (cd backend && mypy)   # lint, strict types
 cd frontend && npm run build && npx playwright test   # typecheck, build, e2e smoke + axe a11y
+# first time on a machine: (cd frontend && npx playwright install chromium)
 ```
 Same suite on PostgreSQL 16 (each test gets a fresh database, dropped at the end):
 ```bash
