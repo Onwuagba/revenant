@@ -56,7 +56,12 @@ function Handset({ slug }: { slug: string }) {
       const out = await api.emuInput(sid!, next);
       return { next, out };
     },
-    onSuccess: async ({ next, out }) => { setCumulative(next); setBuffer(""); setScreen(out); await refreshInbox(); input.current?.focus(); },
+    // The inbox refresh runs in the background: awaiting it kept the send "pending" after the input was
+    // cleared, so on a slow host the next Enter was silently ignored.
+    onSuccess: ({ next, out }) => {
+      setCumulative(next); setBuffer(""); setScreen(out); input.current?.focus();
+      refreshInbox().catch(() => undefined);
+    },
   });
 
   useEffect(() => { refreshInbox().catch(() => undefined); }, []);

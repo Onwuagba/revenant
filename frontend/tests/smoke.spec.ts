@@ -66,3 +66,22 @@ test("state graph puts every state on the canvas (an unreachable error exit must
   }
   expect(inside).toBe(count);
 });
+
+test("emulator accepts the next input while the SMS inbox is still loading (slow host)", async ({ page }) => {
+  // Regression: the inbox refresh was awaited inside the send, so the next Enter was dropped on a slow host.
+  await page.route("**/api/v1/emulator/inbox/**", async route => {
+    await new Promise(r => setTimeout(r, 3_000));
+    await route.continue();
+  });
+  await page.goto("/seance/clinic-booking");
+  await page.getByRole("button", { name: "Dial" }).click();
+  const lcd = page.getByTestId("lcd");
+  await expect(lcd).toContainText("CON Select service");
+  const keys = page.getByLabel("Your input");
+  await keys.fill("1");
+  await keys.press("Enter");
+  await expect(lcd).toContainText("Clinic id");
+  await keys.fill("c1");
+  await keys.press("Enter");                     // inbox request from the first send is still in flight
+  await expect(lcd).toContainText("Slot id", { timeout: 2_000 });
+});

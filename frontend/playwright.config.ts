@@ -4,6 +4,9 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "tests",
   timeout: 60_000,
+  // A remote host (E2E_BASE_URL, e.g. the free-tier demo) can take several seconds per USSD round trip;
+  // give each wait 20 s there. Local runs keep the 5 s default. Assertions are the same either way.
+  expect: { timeout: process.env.E2E_BASE_URL ? 20_000 : 5_000 },
   use: { baseURL: process.env.E2E_BASE_URL ?? "http://127.0.0.1:5173" },
   webServer: process.env.E2E_BASE_URL ? undefined : [
     {
